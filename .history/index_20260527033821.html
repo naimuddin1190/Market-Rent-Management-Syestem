@@ -1343,7 +1343,7 @@ function renderTenants() {
 // =============================================
 // SHOP CRUD
 // =============================================
-window.openShopModal= function(id = null) {
+window.openShopModal=function(id = null) {
   ['shopId','sNumber','sSize','sRent'].forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
   if (id) {
     const s = shops.find(x => x.id === id);
@@ -1423,7 +1423,7 @@ function renderShops() {
 // =============================================
 // PAYMENT/RENT
 // =============================================
-window.openRentModal= function() {
+function openRentModal() {
   ['rShop','rMonthlyRent','rPaid','rDue','rCollector','rNotes'].forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
   populateRentTenantSelect();
   document.getElementById('rDate').value = new Date().toISOString().split('T')[0];
