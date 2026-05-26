@@ -909,7 +909,7 @@ let dashChartInst = null, shopPieInst = null, incomeChartInst = null, dueChartIn
 // =============================================
 // AUTH
 // =============================================
-window.doLogin= function() {
+function doLogin() {
   const u = document.getElementById('loginUser').value;
   const p = document.getElementById('loginPass').value;
   if (u === 'admin' && p === 'admin123') {
@@ -1031,7 +1031,7 @@ async function saveSettings() {
 // =============================================
 // NAVIGATION
 // =============================================
-window.showPage = function(pageId) {
+window.showPage = function showPage(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + pageId);
@@ -1423,7 +1423,7 @@ function renderShops() {
 // =============================================
 // PAYMENT/RENT
 // =============================================
-window.openRentModal=function() {
+window.openRentModal= function() {
   ['rShop','rMonthlyRent','rPaid','rDue','rCollector','rNotes'].forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
   populateRentTenantSelect();
   document.getElementById('rDate').value = new Date().toISOString().split('T')[0];
