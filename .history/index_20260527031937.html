@@ -909,7 +909,7 @@ let dashChartInst = null, shopPieInst = null, incomeChartInst = null, dueChartIn
 // =============================================
 // AUTH
 // =============================================
-window.doLogin= function() {
+window doLogin() {
   const u = document.getElementById('loginUser').value;
   const p = document.getElementById('loginPass').value;
   if (u === 'admin' && p === 'admin123') {
@@ -921,7 +921,7 @@ window.doLogin= function() {
   } else {
     alert('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড');
   }
-};
+}
 function doLogout() {
   if (confirm('লগআউট করতে চান?')) {
     localStorage.removeItem('currentUser');
