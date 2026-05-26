@@ -700,7 +700,7 @@
   </div>
 </div>
 
-<script>
+<script type="module">
 // ============================================================
 // ██████╗ ██╗     ██████╗   ███████╗██╗██████╗ ███████╗
 // ██╔════╝██║    ██╔═══██╗  ██╔════╝██║██╔══██╗██╔════╝
@@ -909,7 +909,7 @@ let dashChartInst = null, shopPieInst = null, incomeChartInst = null, dueChartIn
 // =============================================
 // AUTH
 // =============================================
-function doLogin() {
+function() {
   const u = document.getElementById('loginUser').value;
   const p = document.getElementById('loginPass').value;
   if (u === 'admin' && p === 'admin123') {
@@ -1031,7 +1031,7 @@ async function saveSettings() {
 // =============================================
 // NAVIGATION
 // =============================================
-function showPage(pageId) {
+window.showPage = function(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + pageId);

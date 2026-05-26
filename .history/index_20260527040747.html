@@ -700,7 +700,7 @@
   </div>
 </div>
 
-<script>
+<script type="module">
 // ============================================================
 // ██████╗ ██╗     ██████╗   ███████╗██╗██████╗ ███████╗
 // ██╔════╝██║    ██╔═══██╗  ██╔════╝██║██╔══██╗██╔════╝
@@ -1031,7 +1031,7 @@ async function saveSettings() {
 // =============================================
 // NAVIGATION
 // =============================================
-function showPage(pageId) {
+window.showPage = function showPage(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + pageId);
