@@ -1361,7 +1361,7 @@ window.openShopModal= function(id = null) {
   openModal('shopModal');
 }
 
-window.saveShop =async function() {
+async function() {
   const number = document.getElementById('sNumber').value.trim();
   if (!number) { showToast('দোকান নম্বর আবশ্যক', 'error'); return; }
   const id = document.getElementById('shopId').value;
