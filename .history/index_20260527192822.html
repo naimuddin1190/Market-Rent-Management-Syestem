@@ -1067,7 +1067,7 @@ window.toggleDarkMode= function() {
   localStorage.setItem('darkMode', isDark ? 'light' : 'dark');
   // Re-render charts
   setTimeout(() => { renderDashboard(); renderReports(); }, 100);
-};
+}
 
 // Load saved theme
 (function() {
