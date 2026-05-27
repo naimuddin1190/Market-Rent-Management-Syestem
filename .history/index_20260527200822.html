@@ -922,7 +922,7 @@ window.doLogin= function() {
     alert('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড');
   }
 };
-window.doLogout=function() {
+function() {
   if (confirm('লগআউট করতে চান?')) {
     localStorage.removeItem('currentUser');
     location.reload();

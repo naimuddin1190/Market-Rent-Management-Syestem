@@ -922,7 +922,7 @@ window.doLogin= function() {
     alert('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড');
   }
 };
-window.doLogout=function() {
+function doLogout() {
   if (confirm('লগআউট করতে চান?')) {
     localStorage.removeItem('currentUser');
     location.reload();
@@ -932,7 +932,7 @@ window.doLogout=function() {
 // =============================================
 // INIT
 // =============================================
-window.init=async function() {
+async function init() {
   if (!currentUser) {
     document.getElementById('loginPage').style.display = 'flex';
     document.getElementById('mainApp').style.display = 'none';
@@ -982,7 +982,7 @@ window.init=async function() {
   updateSyncBadge();
 }
 
-window.setDateDisplay=function() {
+function setDateDisplay() {
   const now = new Date();
   const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   document.getElementById('dashDate').textContent = now.toLocaleDateString('bn-BD', opts);
@@ -999,7 +999,7 @@ window.setDateDisplay=function() {
   if (rMonth) rMonth.value = months[now.getMonth()];
 }
 
-window.applySettings=async function() {
+async function applySettings() {
   const fireSettings = await FDB.getSettings();
   if (fireSettings) {
     settings = { ...settings, ...fireSettings };
@@ -1008,7 +1008,7 @@ window.applySettings=async function() {
   }
 }
 
-window.loadSettingsForm=function() {
+function loadSettingsForm() {
   document.getElementById('mktName').value = settings.mktName || '';
   document.getElementById('mktAddress').value = settings.mktAddress || '';
   document.getElementById('mktPhone').value = settings.mktPhone || '';
@@ -1016,7 +1016,7 @@ window.loadSettingsForm=function() {
   document.getElementById('mktHolding').value = settings.mktHolding || '';
 }
 
-window.saveSettings=async function() {
+async function saveSettings() {
   settings.mktName    = document.getElementById('mktName').value;
   settings.mktAddress = document.getElementById('mktAddress').value;
   settings.mktPhone   = document.getElementById('mktPhone').value;
@@ -1051,7 +1051,7 @@ window.showPage = function(pageId) {
   else if (pageId === 'reports') renderReports();
 }
 
-window.toggleSidebar=function() {
+function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   if (window.innerWidth < 768) sb.classList.toggle('mobile-open');
 }
@@ -1577,7 +1577,7 @@ window.viewSlip=function(paymentId) {
   openModal('slipModal');
 }
 
-window.generateSlipCopy=function(p, s, copyLabel) {
+function(p, s, copyLabel) {
   return `
     <div class="slip-copy" style="font-family:'Noto Serif Bengali',serif;">
       <!-- Decorative top border -->
@@ -1652,13 +1652,13 @@ window.generateSlipCopy=function(p, s, copyLabel) {
   `;
 }
 
-window.formatBnDate=function(dateStr) {
+function formatBnDate(dateStr) {
   if (!dateStr) return '...........';
   const d = new Date(dateStr);
   return d.toLocaleDateString('bn-BD', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-window.printSlip=function() {
+function printSlip() {
   const content = document.getElementById('printSlipArea').innerHTML;
   const win = window.open('', '_blank', 'width=900,height=600');
   const html = '<!DOCTYPE html>' +
@@ -1683,12 +1683,12 @@ window.printSlip=function() {
   setTimeout(() => win.print(), 500);
 }
 
-window.downloadSlipPDF=function() {
+function downloadSlipPDF() {
   printSlip(); // Browser print dialog handles PDF
   showToast('প্রিন্ট ডায়ালগ থেকে "PDF হিসেবে সংরক্ষণ" নির্বাচন করুন');
 }
 
-window.sendWhatsApp=function() {
+function sendWhatsApp() {
   if (!currentSlipPayment) return;
   const p = currentSlipPayment;
   const t = tenants.find(x => x.id === p.tenantId);
@@ -1697,7 +1697,7 @@ window.sendWhatsApp=function() {
   window.open(`https://wa.me/88${t.mobile.replace(/[^0-9]/g,'').replace(/^0/,'0')}?text=${msg}`, '_blank');
 }
 
-window.printAllMonthReceipts=function() {
+function printAllMonthReceipts() {
   const monthF = document.getElementById('rcMonthFilter')?.value || '';
   const list = payments.filter(p => !monthF || `${p.month} ${p.year}` === monthF);
   if (!list.length) { showToast('প্রিন্ট করার মতো কোনো রসিদ নেই', 'warning'); return; }
@@ -1707,7 +1707,7 @@ window.printAllMonthReceipts=function() {
 // =============================================
 // PAYMENT HISTORY
 // =============================================
-window.buildMonthFilters=function() {
+function buildMonthFilters() {
   payments = DB.get('payments');
   const months = [...new Set(payments.map(p => `${p.month} ${p.year}`))].sort();
   ['rcMonthFilter','histMonthFilter'].forEach(id => {
@@ -1733,7 +1733,7 @@ window.buildMonthFilters=function() {
   }
 }
 
-window.renderHistory=function() {
+function renderHistory() {
   payments = DB.get('payments');
   const tenantF = document.getElementById('histTenantFilter')?.value || '';
   const monthF = document.getElementById('histMonthFilter')?.value || '';
@@ -1785,7 +1785,7 @@ window.renderHistory=function() {
   `;
 }
 
-window.exportPaymentHistory=function() {
+function exportPaymentHistory() {
   const data = JSON.stringify({ payments, tenants, date: new Date().toISOString() }, null, 2);
   downloadFile('payment_history.json', data, 'application/json');
   showToast('পেমেন্ট ইতিহাস ডাউনলোড হচ্ছে...');
@@ -1794,7 +1794,7 @@ window.exportPaymentHistory=function() {
 // =============================================
 // AGREEMENTS
 // =============================================
-window.renderAgreements=function() {
+function renderAgreements() {
   tenants = DB.get('tenants');
   const grid = document.getElementById('agreementGrid');
   if (!grid) return;
@@ -1838,7 +1838,7 @@ window.renderAgreements=function() {
 // =============================================
 // DASHBOARD
 // =============================================
-window.renderDashboard=function() {
+function renderDashboard() {
   tenants = DB.get('tenants');
   shops = DB.get('shops');
   payments = DB.get('payments');
@@ -1900,7 +1900,7 @@ window.renderDashboard=function() {
   renderShopPieChart();
 }
 
-window.updateDashChart=function() {
+function updateDashChart() {
   const year = parseInt(document.getElementById('chartYear')?.value || new Date().getFullYear());
   const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const collected = months.map(m => payments.filter(p => p.month===m && p.year===year).reduce((a,b) => a+(b.paid||0), 0));
@@ -1927,7 +1927,7 @@ window.updateDashChart=function() {
   });
 }
 
-window.renderShopPieChart=function() {
+function renderShopPieChart() {
   const occupied = shops.filter(s=>s.status==='occupied').length;
   const empty = shops.filter(s=>s.status==='empty').length;
   const maintenance = shops.filter(s=>s.status==='maintenance').length;
@@ -1954,7 +1954,7 @@ window.renderShopPieChart=function() {
 // =============================================
 // REPORTS
 // =============================================
-window.renderReports=function() {
+function renderReports() {
   const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const year = new Date().getFullYear();
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -2002,7 +2002,7 @@ window.renderReports=function() {
 // =============================================
 // NOTIFICATIONS
 // =============================================
-window.updateNotifications=function() {
+function updateNotifications() {
   tenants = DB.get('tenants');
   payments = DB.get('payments');
   const notifs = [];
@@ -2032,7 +2032,7 @@ window.updateNotifications=function() {
     </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.83rem;">কোনো নোটিফিকেশন নেই</div>';
 }
 
-window.toggleNotifPanel=function() {
+function toggleNotifPanel() {
   const panel = document.getElementById('notifPanel');
   panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
 }
@@ -2045,7 +2045,7 @@ document.addEventListener('click', (e) => {
 // =============================================
 // SEARCH
 // =============================================
-window.globalSearchFn=function(q) {
+function globalSearchFn(q) {
   if (!q) return;
   const ql = q.toLowerCase();
   const found = tenants.filter(t => t.name.toLowerCase().includes(ql) || t.mobile.includes(ql) || t.shop.toLowerCase().includes(ql));
@@ -2059,7 +2059,7 @@ window.globalSearchFn=function(q) {
 // =============================================
 // BACKUP/RESTORE
 // =============================================
-window.exportBackup=async function() {
+async function exportBackup() {
   showLoadingToast('ব্যাকআপ তৈরি হচ্ছে...');
   const [t, s, p] = FIREBASE_READY
     ? await Promise.all([FDB.getAll('tenants'), FDB.getAll('shops'), FDB.getAll('payments')])
@@ -2074,7 +2074,7 @@ window.exportBackup=async function() {
   showToast('ব্যাকআপ ডাউনলোড হচ্ছে ☁️');
 }
 
-window.importBackup=function(event) {
+function importBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -2109,13 +2109,13 @@ window.importBackup=function(event) {
   event.target.value = '';
 }
 
-window.downloadFile=function(name, content, type) {
+function downloadFile(name, content, type) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content], { type }));
   a.download = name; a.click(); URL.revokeObjectURL(a.href);
 }
 
-window.clearAllData=async function() {
+async function clearAllData() {
   showSyncOverlay(true);
   showSyncStatus('ডেটা মুছে ফেলা হচ্ছে...');
   ['tenants','shops','payments','activities'].forEach(k => localStorage.removeItem(k));
@@ -2140,7 +2140,7 @@ window.clearAllData=async function() {
 // =============================================
 // DEMO DATA
 // =============================================
-window.loadDemoData=async function() {
+async function loadDemoData() {
   if (!confirm('ডেমো ডেটা লোড করবেন? বিদ্যমান ডেটা থাকবে।')) return;
   
   const demoShops = [
@@ -2217,12 +2217,12 @@ window.loadDemoData=async function() {
 // ============================================================
 // FIREBASE SYNC UI HELPERS
 // ============================================================
-window.showLoadingToast=function(msg) {
+function showLoadingToast(msg) {
   showToast(msg);
 }
 
 let _syncOverlay = null;
-window.showSyncOverlay=function(show) {
+function showSyncOverlay(show) {
   if (!_syncOverlay) {
     _syncOverlay = document.createElement('div');
     _syncOverlay.id = 'syncOverlay';
@@ -2240,12 +2240,12 @@ window.showSyncOverlay=function(show) {
   _syncOverlay.style.display = show ? 'flex' : 'none';
 }
 
-window.showSyncStatus=function(msg) {
+function showSyncStatus(msg) {
   const el = document.getElementById('syncMsg');
   if (el) el.textContent = msg;
 }
 
-window.updateSyncBadge=function() {
+function updateSyncBadge() {
   // Show Firebase status in topbar
   const topbar = document.querySelector('.topbar');
   if (!topbar) return;

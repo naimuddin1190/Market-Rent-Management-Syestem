@@ -922,7 +922,7 @@ window.doLogin= function() {
     alert('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড');
   }
 };
-window.doLogout=function() {
+function doLogout() {
   if (confirm('লগআউট করতে চান?')) {
     localStorage.removeItem('currentUser');
     location.reload();
@@ -932,7 +932,7 @@ window.doLogout=function() {
 // =============================================
 // INIT
 // =============================================
-window.init=async function() {
+async function init() {
   if (!currentUser) {
     document.getElementById('loginPage').style.display = 'flex';
     document.getElementById('mainApp').style.display = 'none';
@@ -982,7 +982,7 @@ window.init=async function() {
   updateSyncBadge();
 }
 
-window.setDateDisplay=function() {
+function setDateDisplay() {
   const now = new Date();
   const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   document.getElementById('dashDate').textContent = now.toLocaleDateString('bn-BD', opts);
@@ -999,7 +999,7 @@ window.setDateDisplay=function() {
   if (rMonth) rMonth.value = months[now.getMonth()];
 }
 
-window.applySettings=async function() {
+async function applySettings() {
   const fireSettings = await FDB.getSettings();
   if (fireSettings) {
     settings = { ...settings, ...fireSettings };
@@ -1008,7 +1008,7 @@ window.applySettings=async function() {
   }
 }
 
-window.loadSettingsForm=function() {
+function loadSettingsForm() {
   document.getElementById('mktName').value = settings.mktName || '';
   document.getElementById('mktAddress').value = settings.mktAddress || '';
   document.getElementById('mktPhone').value = settings.mktPhone || '';
@@ -1016,7 +1016,7 @@ window.loadSettingsForm=function() {
   document.getElementById('mktHolding').value = settings.mktHolding || '';
 }
 
-window.saveSettings=async function() {
+async function saveSettings() {
   settings.mktName    = document.getElementById('mktName').value;
   settings.mktAddress = document.getElementById('mktAddress').value;
   settings.mktPhone   = document.getElementById('mktPhone').value;
@@ -1051,7 +1051,7 @@ window.showPage = function(pageId) {
   else if (pageId === 'reports') renderReports();
 }
 
-window.toggleSidebar=function() {
+function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   if (window.innerWidth < 768) sb.classList.toggle('mobile-open');
 }
@@ -2222,7 +2222,7 @@ window.showLoadingToast=function(msg) {
 }
 
 let _syncOverlay = null;
-window.showSyncOverlay=function(show) {
+window.function(show) {
   if (!_syncOverlay) {
     _syncOverlay = document.createElement('div');
     _syncOverlay.id = 'syncOverlay';

@@ -922,7 +922,7 @@ window.doLogin= function() {
     alert('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড');
   }
 };
-window.doLogout=function() {
+function doLogout() {
   if (confirm('লগআউট করতে চান?')) {
     localStorage.removeItem('currentUser');
     location.reload();
@@ -932,7 +932,7 @@ window.doLogout=function() {
 // =============================================
 // INIT
 // =============================================
-window.init=async function() {
+async function init() {
   if (!currentUser) {
     document.getElementById('loginPage').style.display = 'flex';
     document.getElementById('mainApp').style.display = 'none';
@@ -982,7 +982,7 @@ window.init=async function() {
   updateSyncBadge();
 }
 
-window.setDateDisplay=function() {
+function setDateDisplay() {
   const now = new Date();
   const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
   document.getElementById('dashDate').textContent = now.toLocaleDateString('bn-BD', opts);
@@ -999,7 +999,7 @@ window.setDateDisplay=function() {
   if (rMonth) rMonth.value = months[now.getMonth()];
 }
 
-window.applySettings=async function() {
+async function applySettings() {
   const fireSettings = await FDB.getSettings();
   if (fireSettings) {
     settings = { ...settings, ...fireSettings };
@@ -1008,7 +1008,7 @@ window.applySettings=async function() {
   }
 }
 
-window.loadSettingsForm=function() {
+function loadSettingsForm() {
   document.getElementById('mktName').value = settings.mktName || '';
   document.getElementById('mktAddress').value = settings.mktAddress || '';
   document.getElementById('mktPhone').value = settings.mktPhone || '';
@@ -1016,7 +1016,7 @@ window.loadSettingsForm=function() {
   document.getElementById('mktHolding').value = settings.mktHolding || '';
 }
 
-window.saveSettings=async function() {
+async function saveSettings() {
   settings.mktName    = document.getElementById('mktName').value;
   settings.mktAddress = document.getElementById('mktAddress').value;
   settings.mktPhone   = document.getElementById('mktPhone').value;
@@ -1051,7 +1051,7 @@ window.showPage = function(pageId) {
   else if (pageId === 'reports') renderReports();
 }
 
-window.toggleSidebar=function() {
+function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   if (window.innerWidth < 768) sb.classList.toggle('mobile-open');
 }
@@ -2074,7 +2074,7 @@ window.exportBackup=async function() {
   showToast('ব্যাকআপ ডাউনলোড হচ্ছে ☁️');
 }
 
-window.importBackup=function(event) {
+function importBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -2109,13 +2109,13 @@ window.importBackup=function(event) {
   event.target.value = '';
 }
 
-window.downloadFile=function(name, content, type) {
+function downloadFile(name, content, type) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content], { type }));
   a.download = name; a.click(); URL.revokeObjectURL(a.href);
 }
 
-window.clearAllData=async function() {
+async function clearAllData() {
   showSyncOverlay(true);
   showSyncStatus('ডেটা মুছে ফেলা হচ্ছে...');
   ['tenants','shops','payments','activities'].forEach(k => localStorage.removeItem(k));
@@ -2140,7 +2140,7 @@ window.clearAllData=async function() {
 // =============================================
 // DEMO DATA
 // =============================================
-window.loadDemoData=async function() {
+async function loadDemoData() {
   if (!confirm('ডেমো ডেটা লোড করবেন? বিদ্যমান ডেটা থাকবে।')) return;
   
   const demoShops = [
@@ -2217,12 +2217,12 @@ window.loadDemoData=async function() {
 // ============================================================
 // FIREBASE SYNC UI HELPERS
 // ============================================================
-window.showLoadingToast=function(msg) {
+function showLoadingToast(msg) {
   showToast(msg);
 }
 
 let _syncOverlay = null;
-window.showSyncOverlay=function(show) {
+function showSyncOverlay(show) {
   if (!_syncOverlay) {
     _syncOverlay = document.createElement('div');
     _syncOverlay.id = 'syncOverlay';
@@ -2240,12 +2240,12 @@ window.showSyncOverlay=function(show) {
   _syncOverlay.style.display = show ? 'flex' : 'none';
 }
 
-window.showSyncStatus=function(msg) {
+function showSyncStatus(msg) {
   const el = document.getElementById('syncMsg');
   if (el) el.textContent = msg;
 }
 
-window.updateSyncBadge=function() {
+function updateSyncBadge() {
   // Show Firebase status in topbar
   const topbar = document.querySelector('.topbar');
   if (!topbar) return;
