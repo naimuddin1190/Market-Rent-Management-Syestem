@@ -1,0 +1,2488 @@
+<!DOCTYPE html>
+<html lang="bn" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>হাজী চাঁন মিয়া মার্কেট - ভাড়া ব্যবস্থাপনা সিস্টেম</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&family=Noto+Serif+Bengali:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root {
+    --bg-primary: #f0fdf4;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-sidebar: #14532d;
+    --text-primary: #14532d;
+    --text-secondary: #166534;
+    --text-muted: #6b7280;
+    --border: #bbf7d0;
+    --accent: #16a34a;
+    --accent-dark: #15803d;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --info: #2563eb;
+    --shadow: 0 4px 24px rgba(20,83,45,0.10);
+    --sidebar-w: 260px;
+  }
+  [data-theme="dark"] {
+    --bg-primary: #0f1a14;
+    --bg-secondary: #1a2e20;
+    --bg-card: #1e3828;
+    --bg-sidebar: #0a1a10;
+    --text-primary: #86efac;
+    --text-secondary: #4ade80;
+    --text-muted: #9ca3af;
+    --border: #166534;
+    --accent: #22c55e;
+    --accent-dark: #16a34a;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hind Siliguri', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+    min-height: 100vh;
+  }
+  .sidebar {
+    position: fixed; top: 0; left: 0;
+    width: var(--sidebar-w); height: 100vh;
+    background: var(--bg-sidebar);
+    overflow-y: auto; z-index: 100;
+    transition: transform 0.3s ease;
+    display: flex; flex-direction: column;
+  }
+  .sidebar-logo {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+  }
+  .sidebar-logo h2 {
+    font-family: 'Noto Serif Bengali', serif;
+    font-size: 1.1rem; font-weight: 800;
+    color: #bbf7d0; line-height: 1.4;
+  }
+  .sidebar-logo p { color: #86efac; font-size: 0.72rem; margin-top: 3px; }
+  .sidebar-nav { flex: 1; padding: 12px 0; }
+  .nav-section { padding: 8px 16px 4px; color: #4ade80; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px; color: #bbf7d0; cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.2s; font-size: 0.88rem;
+    text-decoration: none;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; border-left-color: #4ade80; }
+  .nav-item.active { background: rgba(74,222,128,0.15); color: #4ade80; border-left-color: #4ade80; font-weight: 600; }
+  .nav-item i { width: 18px; text-align: center; font-size: 0.9rem; }
+  .main-content {
+    margin-left: var(--sidebar-w);
+    min-height: 100vh;
+    transition: margin-left 0.3s;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 90;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: var(--shadow);
+  }
+  .content-area { padding: 24px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .stat-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px 22px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(20,83,45,0.15); }
+  .stat-card .icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 12px;
+  }
+  .stat-card .value { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); }
+  .stat-card .label { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 0.87rem; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; font-family: 'Hind Siliguri', sans-serif; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-warning { background: var(--warning); color: #fff; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--accent); color: var(--accent); }
+  .btn-outline:hover { background: var(--accent); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+  .btn-gray { background: #f3f4f6; color: #374151; }
+  .btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--text-primary); }
+  [data-theme="dark"] .btn-gray { background: #374151; color: #d1d5db; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th { background: #f0fdf4; color: #166534; font-weight: 600; font-size: 0.82rem; padding: 10px 14px; text-align: left; border-bottom: 2px solid #bbf7d0; }
+  [data-theme="dark"] .data-table th { background: #1a2e20; color: #4ade80; border-bottom-color: #166534; }
+  .data-table td { padding: 10px 14px; font-size: 0.85rem; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+  .data-table tr:hover td { background: rgba(74,222,128,0.05); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--bg-secondary); border-radius: 16px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.2s; }
+  .modal-overlay.open .modal { transform: scale(1); }
+  .modal-header { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h3 { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+  .modal-body { padding: 20px 22px; }
+  .modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+  .form-input {
+    width: 100%; padding: 9px 12px; border-radius: 8px;
+    border: 1.5px solid var(--border); background: var(--bg-primary);
+    color: var(--text-primary); font-size: 0.87rem;
+    font-family: 'Hind Siliguri', sans-serif;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { outline: none; border-color: var(--accent); }
+  [data-theme="dark"] .form-input { background: #1a2e20; border-color: #166534; }
+  .form-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 0.74rem; font-weight: 600; }
+  .badge-green { background: #dcfce7; color: #166534; }
+  .badge-red { background: #fee2e2; color: #991b1b; }
+  .badge-yellow { background: #fef9c3; color: #92400e; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+  [data-theme="dark"] .badge-green { background: #166534; color: #86efac; }
+  [data-theme="dark"] .badge-red { background: #7f1d1d; color: #fca5a5; }
+  [data-theme="dark"] .badge-yellow { background: #78350f; color: #fcd34d; }
+  .slip-container { font-family: 'Noto Serif Bengali', serif; background: #fff; color: #14532d; }
+  .slip-copy {
+    border: 2px solid #16a34a;
+    border-radius: 4px; padding: 16px;
+    position: relative; width: 100%;
+  }
+  .slip-copy::before {
+    content: '';
+    position: absolute; inset: 4px;
+    border: 1px solid #86efac;
+    border-radius: 2px; pointer-events: none;
+  }
+  .slip-title-bn { font-family: 'Noto Serif Bengali', serif; font-size: 1.8rem; font-weight: 800; color: #14532d; line-height: 1.2; }
+  .slip-sub-bn { font-size: 0.82rem; color: #166534; }
+  .slip-field { border-bottom: 1.5px dashed #16a34a; min-width: 80px; display: inline-block; padding: 0 4px; }
+  .slip-stamp { background: #16a34a; color: #fff; padding: 4px 16px; border-radius: 4px; font-size: 1.1rem; font-weight: 700; display: inline-block; border: 2px solid #14532d; }
+  .slip-decorative { border: 1px solid #86efac; background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(22,163,74,0.05) 4px, rgba(22,163,74,0.05) 8px); height: 8px; border-radius: 2px; }
+  .timeline-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .timeline-dot { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+  .notification-item { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .notification-item:hover { background: rgba(74,222,128,0.07); }
+  .notification-item.unread { border-left: 3px solid var(--accent); }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #86efac; border-radius: 3px; }
+  .glass { backdrop-filter: blur(12px); background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.3); }
+  [data-theme="dark"] .glass { background: rgba(30,56,40,0.7); border-color: rgba(74,222,128,0.15); }
+  @media (max-width: 768px) {
+    :root { --sidebar-w: 0px; }
+    .sidebar { transform: translateX(-260px); }
+    .sidebar.mobile-open { transform: translateX(0); width: 260px; }
+    .main-content { margin-left: 0; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+  @media print {
+    body { background: #fff !important; }
+    .sidebar, .topbar, .no-print { display: none !important; }
+    .main-content { margin: 0 !important; }
+    .slip-copy { page-break-inside: avoid; }
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .pulse { animation: pulse 2s infinite; }
+  .login-page { min-height: 100vh; background: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%); display: flex; align-items: center; justify-content: center; }
+  .login-card { background: #fff; border-radius: 20px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="login-page" style="display:none;">
+  <div class="login-card text-center">
+    <div style="margin-bottom:20px;">
+      <div style="width:70px;height:70px;background:linear-gradient(135deg,#14532d,#16a34a);border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;">
+        <i class="fas fa-store text-white text-2xl"></i>
+      </div>
+      <h1 style="font-family:'Noto Serif Bengali',serif;font-size:1.5rem;font-weight:800;color:#14532d;line-height:1.3;">হাজী চাঁন মিয়া মার্কেট</h1>
+      <p style="color:#6b7280;font-size:0.82rem;margin-top:4px;">ভাড়া ব্যবস্থাপনা সিস্টেম</p>
+    </div>
+    <div style="text-align:left;">
+      <div class="form-group">
+        <label class="form-label" style="color:#14532d;">ব্যবহারকারীর নাম</label>
+        <input type="text" id="loginUser" class="form-input" placeholder="admin" value="admin">
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="color:#14532d;">পাসওয়ার্ড</label>
+        <input type="password" id="loginPass" class="form-input" placeholder="••••••••" value="admin123">
+      </div>
+      <button onclick="doLogin()" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:1rem;margin-top:8px;">
+        <i class="fas fa-sign-in-alt"></i> লগইন করুন
+      </button>
+      <p style="text-align:center;font-size:0.78rem;color:#9ca3af;margin-top:12px;">ডেমো: admin / admin123</p>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="mainApp" style="display:none;">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div style="width:44px;height:44px;background:rgba(255,255,255,0.15);border-radius:10px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;">
+      <i class="fas fa-store" style="color:#4ade80;font-size:1.2rem;"></i>
+    </div>
+    <h2>হাজী চাঁন মিয়া মার্কেট</h2>
+    <p>ভাড়া ব্যবস্থাপনা সিস্টেম</p>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">প্রধান</div>
+    <a class="nav-item active" onclick="showPage('dashboard')"><i class="fas fa-th-large"></i> ড্যাশবোর্ড</a>
+    <a class="nav-item" onclick="showPage('tenants')"><i class="fas fa-users"></i> ভাড়াটিয়া ব্যবস্থাপনা</a>
+    <a class="nav-item" onclick="showPage('shops')"><i class="fas fa-store-alt"></i> দোকান ব্যবস্থাপনা</a>
+    <div class="nav-section">ভাড়া</div>
+    <a class="nav-item" onclick="showPage('rentCollection')"><i class="fas fa-money-bill-wave"></i> ভাড়া সংগ্রহ</a>
+    <a class="nav-item" onclick="showPage('paymentHistory')"><i class="fas fa-history"></i> পেমেন্ট ইতিহাস</a>
+    <a class="nav-item" onclick="showPage('agreements')"><i class="fas fa-file-contract"></i> চুক্তি ট্র্যাকার</a>
+    <div class="nav-section">বিশ্লেষণ</div>
+    <a class="nav-item" onclick="showPage('reports')"><i class="fas fa-chart-bar"></i> রিপোর্ট ও বিশ্লেষণ</a>
+    <div class="nav-section">সিস্টেম</div>
+    <a class="nav-item" onclick="showPage('settings')"><i class="fas fa-cog"></i> সেটিংস</a>
+    <a class="nav-item" onclick="exportBackup()"><i class="fas fa-download"></i> ব্যাকআপ নিন</a>
+    <a class="nav-item" onclick="document.getElementById('importFile').click()"><i class="fas fa-upload"></i> ব্যাকআপ আমদানি</a>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(event)">
+    <a class="nav-item" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> লগআউট</a>
+  </nav>
+  <div style="padding:14px;border-top:1px solid rgba(255,255,255,0.1);text-align:center;">
+    <p style="color:#4ade80;font-size:0.72rem;">v1.0 © ২০২৪</p>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<div class="main-content">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button onclick="toggleSidebar()" style="background:none;border:none;cursor:pointer;color:var(--text-primary);font-size:1.1rem;padding:4px;" id="menuBtn">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div style="position:relative;">
+        <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.82rem;"></i>
+        <input type="text" id="globalSearch" placeholder="দ্রুত অনুসন্ধান..."
+          style="padding:7px 12px 7px 32px;border-radius:20px;border:1.5px solid var(--border);background:var(--bg-primary);color:var(--text-primary);font-family:'Hind Siliguri',sans-serif;font-size:0.83rem;width:220px;"
+          oninput="globalSearchFn(this.value)">
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="position:relative;">
+        <button onclick="toggleNotifPanel()" style="background:none;border:none;cursor:pointer;color:var(--text-primary);font-size:1rem;padding:6px;position:relative;">
+          <i class="fas fa-bell"></i>
+          <span id="notifBadge" style="position:absolute;top:2px;right:2px;width:8px;height:8px;background:#dc2626;border-radius:50%;display:none;"></span>
+        </button>
+        <div id="notifPanel" style="display:none;position:absolute;right:0;top:calc(100%+8px);width:300px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);z-index:200;max-height:400px;overflow-y:auto;">
+          <div style="padding:12px 14px 8px;font-weight:700;font-size:0.88rem;border-bottom:1px solid var(--border);color:var(--text-primary);">নোটিফিকেশন</div>
+          <div id="notifList"></div>
+        </div>
+      </div>
+      <button onclick="toggleDarkMode()" style="background:none;border:none;cursor:pointer;color:var(--text-primary);font-size:1rem;padding:6px;" id="darkBtn">
+        <i class="fas fa-moon"></i>
+      </button>
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#14532d,#16a34a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.82rem;font-weight:700;">A</div>
+        <span style="font-size:0.83rem;font-weight:600;color:var(--text-primary);">অ্যাডমিন</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENT AREA -->
+  <main class="content-area">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h1 style="font-size:1.4rem;font-weight:700;color:var(--text-primary);">ড্যাশবোর্ড</h1>
+          <p style="font-size:0.82rem;color:var(--text-muted);" id="dashDate"></p>
+        </div>
+        <button onclick="showPage('rentCollection');openRentModal()" class="btn btn-primary">
+          <i class="fas fa-plus"></i> নতুন রসিদ তৈরি
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:24px;" id="statCards"></div>
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;margin-bottom:20px;" id="dashMainRow">
+        <div class="stat-card" style="padding:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="font-weight:700;font-size:0.95rem;">মাসিক আয়ের সারসংক্ষেপ</h3>
+            <select id="chartYear" onchange="updateDashChart()" class="form-input form-select" style="width:auto;padding:4px 28px 4px 8px;font-size:0.78rem;"></select>
+          </div>
+          <canvas id="dashChart" height="200"></canvas>
+        </div>
+        <div class="stat-card" style="padding:20px;">
+          <h3 style="font-weight:700;font-size:0.95rem;margin-bottom:14px;"><i class="fas fa-exclamation-triangle" style="color:#d97706;"></i> মেয়াদ শেষ হচ্ছে</h3>
+          <div id="expiryWidget" style="max-height:260px;overflow-y:auto;"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;" id="dashBottomRow">
+        <div class="stat-card" style="padding:20px;">
+          <h3 style="font-weight:700;font-size:0.95rem;margin-bottom:14px;"><i class="fas fa-clock" style="color:var(--accent);"></i> সাম্প্রতিক কার্যক্রম</h3>
+          <div id="activityTimeline"></div>
+        </div>
+        <div class="stat-card" style="padding:20px;">
+          <h3 style="font-weight:700;font-size:0.95rem;margin-bottom:14px;"><i class="fas fa-chart-pie" style="color:var(--accent);"></i> দোকান অবস্থা</h3>
+          <canvas id="shopPieChart" height="180"></canvas>
+          <div id="shopPieLegend" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TENANTS -->
+    <div id="page-tenants" class="page fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">ভাড়াটিয়া ব্যবস্থাপনা</h1>
+        <button onclick="openTenantModal()" class="btn btn-primary"><i class="fas fa-plus"></i> নতুন ভাড়াটিয়া</button>
+      </div>
+      <div class="stat-card" style="padding:14px 18px;margin-bottom:16px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <div style="position:relative;flex:1;min-width:180px;">
+            <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.8rem;"></i>
+            <input type="text" id="tenantSearch" placeholder="নাম, মোবাইল, এনআইডি..." oninput="renderTenants()" class="form-input" style="padding-left:32px;">
+          </div>
+          <select id="tenantFloorFilter" onchange="renderTenants()" class="form-input form-select" style="width:auto;">
+            <option value="">সব ফ্লোর</option>
+            <option>নিচতলা</option><option>২য় তলা</option><option>৩য় তলা</option>
+          </select>
+          <select id="tenantStatusFilter" onchange="renderTenants()" class="form-input form-select" style="width:auto;">
+            <option value="">সব অবস্থা</option>
+            <option value="active">সক্রিয়</option>
+            <option value="expiring">মেয়াদ শেষ হচ্ছে</option>
+            <option value="expired">মেয়াদ উত্তীর্ণ</option>
+          </select>
+          <select id="tenantSort" onchange="renderTenants()" class="form-input form-select" style="width:auto;">
+            <option value="name">নাম অনুযায়ী</option>
+            <option value="shop">দোকান অনুযায়ী</option>
+            <option value="rent">ভাড়া অনুযায়ী</option>
+          </select>
+        </div>
+      </div>
+      <div class="stat-card" style="padding:0;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="tenantTable">
+            <thead>
+              <tr><th>ছবি</th><th>নাম</th><th>মোবাইল</th><th>দোকান</th><th>মাসিক ভাড়া</th><th>চুক্তির অবস্থা</th><th>কার্যক্রম</th></tr>
+            </thead>
+            <tbody id="tenantTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOPS -->
+    <div id="page-shops" class="page fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">দোকান ব্যবস্থাপনা</h1>
+        <button onclick="openShopModal()" class="btn btn-primary"><i class="fas fa-plus"></i> নতুন দোকান</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;" id="shopGrid"></div>
+    </div>
+
+    <!-- RENT COLLECTION -->
+    <div id="page-rentCollection" class="page fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">ভাড়া সংগ্রহ</h1>
+        <button onclick="openRentModal()" class="btn btn-primary"><i class="fas fa-plus"></i> নতুন রসিদ</button>
+      </div>
+      <div class="stat-card" style="padding:14px 18px;margin-bottom:16px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <select id="rcMonthFilter" onchange="renderPayments()" class="form-input form-select" style="width:auto;">
+            <option value="">সব মাস</option>
+          </select>
+          <select id="rcStatusFilter" onchange="renderPayments()" class="form-input form-select" style="width:auto;">
+            <option value="">সব অবস্থা</option>
+            <option value="paid">পরিশোধিত</option>
+            <option value="partial">আংশিক</option>
+            <option value="due">বাকি</option>
+          </select>
+          <button onclick="printAllMonthReceipts()" class="btn btn-outline btn-sm"><i class="fas fa-print"></i> সব রসিদ প্রিন্ট</button>
+        </div>
+      </div>
+      <div class="stat-card" style="padding:0;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead><tr><th>রসিদ নং</th><th>ভাড়াটিয়া</th><th>দোকান</th><th>মাস</th><th>মাসিক ভাড়া</th><th>পরিশোধিত</th><th>বাকি</th><th>অবস্থা</th><th>কার্যক্রম</th></tr></thead>
+            <tbody id="paymentTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAYMENT HISTORY -->
+    <div id="page-paymentHistory" class="page fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">পেমেন্ট ইতিহাস</h1>
+        <button onclick="exportPaymentHistory()" class="btn btn-outline"><i class="fas fa-file-export"></i> এক্সপোর্ট</button>
+      </div>
+      <div class="stat-card" style="padding:14px 18px;margin-bottom:16px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <select id="histTenantFilter" onchange="renderHistory()" class="form-input form-select" style="flex:1;min-width:160px;">
+            <option value="">সব ভাড়াটিয়া</option>
+          </select>
+          <select id="histMonthFilter" onchange="renderHistory()" class="form-input form-select" style="width:auto;">
+            <option value="">সব মাস</option>
+          </select>
+        </div>
+      </div>
+      <div id="historyContainer"></div>
+    </div>
+
+    <!-- AGREEMENTS -->
+    <div id="page-agreements" class="page fade-in">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <h1 style="font-size:1.4rem;font-weight:700;">চুক্তি বৈধতা ট্র্যাকার</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="showAgreementTab('active')" id="agTabActive" class="btn btn-primary btn-sm"><i class="fas fa-check-circle"></i> সক্রিয় চুক্তি</button>
+          <button onclick="showAgreementTab('leave')" id="agTabLeave" class="btn btn-ghost btn-sm"><i class="fas fa-door-open"></i> ছেড়ে দেওয়ার আবেদন</button>
+          <button onclick="showAgreementTab('archived')" id="agTabArchived" class="btn btn-ghost btn-sm"><i class="fas fa-archive"></i> আর্কাইভ</button>
+        </div>
+      </div>
+      <div id="agreementTabActive">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;" id="agreementGrid"></div>
+      </div>
+      <div id="agreementTabLeave" style="display:none;">
+        <div class="stat-card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+          <div style="padding:14px 18px;font-weight:700;font-size:.9rem;border-bottom:1px solid var(--border);">
+            <i class="fas fa-door-open" style="color:var(--warning);"></i> ছেড়ে দেওয়ার আবেদনসমূহ
+            <span style="font-size:.75rem;color:var(--text-muted);font-weight:400;margin-left:8px;">(৩ মাস পূর্ব নোটিশ প্রয়োজন)</span>
+          </div>
+          <div id="leaveRequestList" style="padding:16px;"></div>
+        </div>
+      </div>
+      <div id="agreementTabArchived" style="display:none;">
+        <div class="stat-card" style="padding:0;overflow:hidden;">
+          <div style="padding:14px 18px;font-weight:700;font-size:.9rem;border-bottom:1px solid var(--border);">
+            <i class="fas fa-archive"></i> আর্কাইভকৃত ভাড়াটিয়া
+          </div>
+          <div id="archivedTenantList" style="padding:16px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="page-reports" class="page fade-in">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:20px;">রিপোর্ট ও বিশ্লেষণ</h1>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+        <div class="stat-card" style="padding:20px;">
+          <h3 style="font-weight:700;margin-bottom:14px;font-size:0.95rem;">মাসিক আয় তুলনা</h3>
+          <canvas id="incomeChart" height="220"></canvas>
+        </div>
+        <div class="stat-card" style="padding:20px;">
+          <h3 style="font-weight:700;margin-bottom:14px;font-size:0.95rem;">বকেয়া ভাড়ার বিশ্লেষণ</h3>
+          <canvas id="dueChart" height="220"></canvas>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="stat-card" style="padding:20px;">
+          <h3 style="font-weight:700;margin-bottom:14px;font-size:0.95rem;">দোকান অধিগ্রহণ অবস্থা</h3>
+          <canvas id="occupancyChart" height="220"></canvas>
+        </div>
+        <div class="stat-card" style="padding:20px;">
+          <h3 style="font-weight:700;margin-bottom:14px;font-size:0.95rem;">চুক্তির মেয়াদ পরিসংখ্যান</h3>
+          <canvas id="agreementChart" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page fade-in">
+      <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:20px;">সিস্টেম সেটিংস</h1>
+      <div style="max-width:600px;">
+        <div class="stat-card" style="padding:24px;margin-bottom:16px;">
+          <h3 style="font-weight:700;margin-bottom:16px;font-size:0.95rem;color:var(--accent);">মার্কেটের তথ্য</h3>
+          <div class="form-group"><label class="form-label">মার্কেটের নাম</label><input id="mktName" class="form-input" value="হাজী চাঁন মিয়া মার্কেট"></div>
+          <div class="form-group"><label class="form-label">ঠিকানা</label><input id="mktAddress" class="form-input" value="ডি.টি রোড, বার কোয়াটার, পাহাড়তলী, চট্টগ্রাম।"></div>
+          <div class="form-group"><label class="form-label">ফোন নম্বর</label><input id="mktPhone" class="form-input" value="০১৭৪৭৩৯৫৩২১"></div>
+          <div class="form-group"><label class="form-label">মালিকের নাম</label><input id="mktOwner" class="form-input" value="মোঃ জয়নাল আবেদীন মজুমদার"></div>
+          <div class="form-group"><label class="form-label">হোল্ডিং নম্বর</label><input id="mktHolding" class="form-input" value="হোল্ডিং নং-২৪৯৩/২৭৯১"></div>
+          <button onclick="saveSettings()" class="btn btn-primary"><i class="fas fa-save"></i> সংরক্ষণ করুন</button>
+          <button onclick="openModal('signatureModal');initSignatureCanvas()" class="btn btn-outline" style="margin-top:8px;"><i class="fas fa-signature"></i> মালিকের স্বাক্ষর সেট করুন</button>
+        </div>
+        <div class="stat-card" style="padding:24px;">
+          <h3 style="font-weight:700;margin-bottom:16px;font-size:0.95rem;color:var(--accent);">ডেটা ব্যবস্থাপনা</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="exportBackup()" class="btn btn-outline"><i class="fas fa-download"></i> ব্যাকআপ ডাউনলোড</button>
+            <button onclick="document.getElementById('importFile').click()" class="btn btn-outline"><i class="fas fa-upload"></i> ব্যাকআপ আমদানি</button>
+            <button onclick="loadDemoData()" class="btn btn-gray"><i class="fas fa-database"></i> ডেমো ডেটা লোড</button>
+            <button onclick="if(confirm('সমস্ত ডেটা মুছে ফেলতে চান?'))clearAllData()" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> সব মুছুন</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+</div>
+
+<!-- ========== MODALS ========== -->
+
+<!-- Tenant Modal -->
+<div class="modal-overlay" id="tenantModal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h3 id="tenantModalTitle">নতুন ভাড়াটিয়া যোগ করুন</h3>
+      <button onclick="closeModal('tenantModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="tenantId">
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <div style="text-align:center;flex-shrink:0;">
+          <div id="photoPreview" onclick="document.getElementById('tenantPhoto').click()" style="width:90px;height:90px;border-radius:50%;border:2px dashed var(--accent);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg-primary);overflow:hidden;">
+            <i class="fas fa-camera" style="color:var(--accent);font-size:1.2rem;"></i>
+            <span style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;">ছবি আপলোড</span>
+          </div>
+          <input type="file" id="tenantPhoto" accept="image/*" style="display:none;" onchange="previewPhoto(this)">
+        </div>
+        <div style="flex:1;">
+          <div class="form-grid">
+            <div class="form-group"><label class="form-label">পূর্ণ নাম *</label><input id="tName" class="form-input" placeholder="ভাড়াটিয়ার নাম"></div>
+            <div class="form-group"><label class="form-label">মোবাইল নম্বর *</label><input id="tMobile" class="form-input" placeholder="০১XXXXXXXXX"></div>
+            <div class="form-group"><label class="form-label">এনআইডি নম্বর</label><input id="tNid" class="form-input" placeholder="NID নম্বর"></div>
+            <div class="form-group"><label class="form-label">মাসিক কর্তন (৳)</label><input id="tDeduction" class="form-input" type="number" placeholder="প্রতি মাসে অগ্রিম থেকে কর্তন"></div>
+            <div class="form-group"><label class="form-label">দোকান নম্বর *</label>
+              <select id="tShop" class="form-input form-select"></select>
+            </div>
+            <div class="form-group"><label class="form-label">ফ্লোর</label>
+              <select id="tFloor" class="form-input form-select">
+                <option>নিচতলা</option><option>২য় তলা</option><option>৩য় তলা</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">মাসিক ভাড়া (৳) *</label><input id="tRent" class="form-input" type="number" placeholder="৳ 0"></div>
+            <div class="form-group"><label class="form-label">অগ্রিম পরিমাণ (৳)</label><input id="tAdvance" class="form-input" type="number" placeholder="৳ 0"></div>
+            <div class="form-group"><label class="form-label">চুক্তি শুরু *</label><input id="tStartDate" class="form-input" type="date"></div>
+            <div class="form-group"><label class="form-label">চুক্তি শেষ *</label><input id="tEndDate" class="form-input" type="date"></div>
+          </div>
+          <div class="form-group"><label class="form-label">ঠিকানা</label><input id="tAddress" class="form-input" placeholder="বর্তমান ঠিকানা"></div>
+          <div class="form-group"><label class="form-label">মন্তব্য</label><textarea id="tNotes" class="form-input" rows="2" placeholder="অতিরিক্ত তথ্য..."></textarea></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+            <div class="form-group">
+              <label class="form-label">এনআইডি সামনের ছবি</label>
+              <div id="nidFrontPreview" onclick="document.getElementById('nidFrontFile').click()" style="height:80px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--bg-primary);font-size:.75rem;color:var(--text-muted);">
+                <span><i class="fas fa-id-card" style="display:block;text-align:center;font-size:1.3rem;margin-bottom:4px;color:var(--accent);"></i>ক্লিক করে আপলোড করুন</span>
+              </div>
+              <input type="file" id="nidFrontFile" accept="image/*" style="display:none;" onchange="previewNID(this,'nidFrontPreview','nidFrontData')">
+              <input type="hidden" id="nidFrontData">
+            </div>
+            <div class="form-group">
+              <label class="form-label">এনআইডি পিছনের ছবি</label>
+              <div id="nidBackPreview" onclick="document.getElementById('nidBackFile').click()" style="height:80px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;background:var(--bg-primary);font-size:.75rem;color:var(--text-muted);">
+                <span><i class="fas fa-id-card" style="display:block;text-align:center;font-size:1.3rem;margin-bottom:4px;color:var(--accent);"></i>ক্লিক করে আপলোড করুন</span>
+              </div>
+              <input type="file" id="nidBackFile" accept="image/*" style="display:none;" onchange="previewNID(this,'nidBackPreview','nidBackData')">
+              <input type="hidden" id="nidBackData">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('tenantModal')" class="btn btn-gray">বাতিল</button>
+      <button onclick="saveTenant()" class="btn btn-primary"><i class="fas fa-save"></i> সংরক্ষণ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shop Modal -->
+<div class="modal-overlay" id="shopModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3 id="shopModalTitle">নতুন দোকান যোগ করুন</h3>
+      <button onclick="closeModal('shopModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="shopId">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">দোকান নম্বর *</label><input id="sNumber" class="form-input" placeholder="যেমন: A-01"></div>
+        <div class="form-group"><label class="form-label">ফ্লোর *</label>
+          <select id="sFloor" class="form-input form-select">
+            <option>নিচতলা</option><option>২য় তলা</option><option>৩য় তলা</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">আকার (বর্গফুট)</label><input id="sSize" class="form-input" type="number" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">নির্ধারিত ভাড়া (৳)</label><input id="sRent" class="form-input" type="number" placeholder="৳ 0"></div>
+        <div class="form-group" style="grid-column:span 2"><label class="form-label">অবস্থা</label>
+          <select id="sStatus" class="form-input form-select">
+            <option value="occupied">ভাড়া দেওয়া</option>
+            <option value="empty">খালি</option>
+            <option value="maintenance">রক্ষণাবেক্ষণ</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('shopModal')" class="btn btn-gray">বাতিল</button>
+      <button onclick="saveShop()" class="btn btn-primary"><i class="fas fa-save"></i> সংরক্ষণ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rent Modal -->
+<div class="modal-overlay" id="rentModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3>নতুন ভাড়া রসিদ তৈরি</h3>
+      <button onclick="closeModal('rentModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">ভাড়াটিয়া *</label>
+          <select id="rTenant" class="form-input form-select" onchange="fillRentInfo()"></select>
+        </div>
+        <div class="form-group"><label class="form-label">মাস *</label>
+          <select id="rMonth" class="form-input form-select">
+            <option>জানুয়ারি</option><option>ফেব্রুয়ারি</option><option>মার্চ</option>
+            <option>এপ্রিল</option><option>মে</option><option>জুন</option>
+            <option>জুলাই</option><option>আগস্ট</option><option>সেপ্টেম্বর</option>
+            <option>অক্টোবর</option><option>নভেম্বর</option><option>ডিসেম্বর</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">তারিখ *</label><input id="rDate" class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">দোকান নম্বর</label><input id="rShop" class="form-input" readonly></div>
+        <div class="form-group"><label class="form-label">মাসিক ভাড়া (৳)</label><input id="rMonthlyRent" class="form-input" type="number"></div>
+        <div class="form-group"><label class="form-label">প্রদত্ত পরিমাণ (৳) *</label><input id="rPaid" class="form-input" type="number" oninput="calcDue()"></div>
+        <div class="form-group"><label class="form-label">বাকি পরিমাণ (৳)</label><input id="rDue" class="form-input" readonly style="background:#f0fdf4;"></div>
+        <div class="form-group"><label class="form-label">সংগ্রহকারীর নাম</label><input id="rCollector" class="form-input" placeholder="কর্মীর নাম"></div>
+      </div>
+      <div class="form-group"><label class="form-label">মন্তব্য</label><textarea id="rNotes" class="form-input" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('rentModal')" class="btn btn-gray">বাতিল</button>
+      <button onclick="savePayment()" class="btn btn-primary"><i class="fas fa-save"></i> সংরক্ষণ করুন</button>
+    </div>
+  </div>
+</div>
+
+<!-- Slip View Modal -->
+<div class="modal-overlay" id="slipModal">
+  <div class="modal" style="max-width:800px;">
+    <div class="modal-header no-print">
+      <h3>ভাড়া রসিদ</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="printSlip()" class="btn btn-primary btn-sm"><i class="fas fa-print"></i> প্রিন্ট</button>
+        <button onclick="downloadSlipPDF()" class="btn btn-outline btn-sm"><i class="fas fa-file-pdf"></i> PDF</button>
+        <button onclick="downloadSlipJPG()" class="btn btn-outline btn-sm" style="border-color:#7c3aed;color:#7c3aed;"><i class="fas fa-image"></i> JPG</button>
+        <button onclick="shareSlipWhatsApp()" class="btn btn-sm" style="background:#25d366;color:#fff;"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+        <button onclick="closeModal('slipModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <div class="modal-body" id="slipContent"></div>
+  </div>
+</div>
+
+<!-- Tenant View Modal -->
+<div class="modal-overlay" id="tenantViewModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <h3>ভাড়াটিয়ার বিবরণ</h3>
+      <button onclick="closeModal('tenantViewModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="tenantViewContent"></div>
+  </div>
+</div>
+
+<!-- Leave Request Modal -->
+<div class="modal-overlay" id="leaveRequestModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-door-open" style="color:var(--warning);margin-right:6px;"></i> ছেড়ে দেওয়ার আবেদন</h3>
+      <button onclick="closeModal('leaveRequestModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="leaveRequestTenantId">
+      <div style="background:#fef9c3;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin-bottom:14px;font-size:.82rem;color:#92400e;">
+        <i class="fas fa-exclamation-triangle"></i> নিয়ম: দোকান/সম্পত্তি ছাড়ার জন্য <strong>৩ মাস আগে</strong> নোটিশ দিতে হবে।
+      </div>
+      <div class="form-group"><label class="form-label">আবেদনের তারিখ</label><input id="leaveReqDate" class="form-input" type="date" onchange="calcNoticedays()"></div>
+      <div class="form-group"><label class="form-label">প্রস্থানের পরিকল্পিত তারিখ</label><input id="leaveExitDate" class="form-input" type="date" onchange="calcNoticedays()"></div>
+      <div class="form-group"><label class="form-label">কারণ</label><textarea id="leaveReason" class="form-input" rows="3" placeholder="ছাড়ার কারণ লিখুন..."></textarea></div>
+      <div id="leaveNoticeDays" style="font-size:.85rem;font-weight:600;padding:8px;border-radius:6px;margin-top:8px;display:none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('leaveRequestModal')" class="btn btn-ghost">বাতিল</button>
+      <button onclick="saveLeaveRequest()" class="btn btn-warning"><i class="fas fa-save"></i> আবেদন দাখিল</button>
+    </div>
+  </div>
+</div>
+
+<!-- Agreement Upload Modal -->
+<div class="modal-overlay" id="agreementUploadModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-file-contract" style="color:var(--accent);margin-right:6px;"></i> চুক্তিপত্র আপলোড</h3>
+      <button onclick="closeModal('agreementUploadModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="agUploadTenantId">
+      <div class="form-group"><label class="form-label">ভাড়াটিয়া</label><input id="agUploadTenantName" class="form-input" readonly></div>
+      <div class="form-group"><label class="form-label">চুক্তির ধরন</label>
+        <select id="agUploadType" class="form-input form-select">
+          <option value="new">নতুন চুক্তি</option>
+          <option value="renewal">নবায়ন চুক্তি</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">চুক্তি ফাইল</label>
+        <div id="agFilePreview" onclick="document.getElementById('agFile').click()" style="border:2px dashed var(--border);border-radius:8px;padding:20px;text-align:center;cursor:pointer;background:var(--bg-primary);">
+          <i class="fas fa-file-pdf" style="color:#dc2626;font-size:2rem;display:block;margin-bottom:8px;"></i>
+          <span style="font-size:.82rem;color:var(--text-muted);">ক্লিক করে PDF/ছবি বেছে নিন</span>
+        </div>
+        <input type="file" id="agFile" accept=".pdf,image/*" style="display:none;" onchange="previewAgreementFile(this)">
+      </div>
+      <div class="form-group"><label class="form-label">মন্তব্য</label><textarea id="agUploadNote" class="form-input" rows="2" placeholder="অতিরিক্ত নোট..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('agreementUploadModal')" class="btn btn-ghost">বাতিল</button>
+      <button onclick="saveAgreementUpload()" class="btn btn-primary"><i class="fas fa-upload"></i> আপলোড করুন</button>
+    </div>
+  </div>
+</div>
+
+<!-- Owner Signature Modal -->
+<div class="modal-overlay" id="signatureModal">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-header">
+      <h3><i class="fas fa-signature" style="color:var(--accent);margin-right:6px;"></i> মালিকের স্বাক্ষর</h3>
+      <button onclick="closeModal('signatureModal')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button onclick="setSignatureMode('draw')" id="sigModeDrawBtn" class="btn btn-primary btn-sm"><i class="fas fa-pen"></i> আঁকুন</button>
+        <button onclick="setSignatureMode('upload')" id="sigModeUploadBtn" class="btn btn-ghost btn-sm"><i class="fas fa-upload"></i> আপলোড করুন</button>
+        <button onclick="clearSignature()" class="btn btn-ghost btn-sm" style="margin-left:auto;"><i class="fas fa-eraser"></i> মুছুন</button>
+      </div>
+      <div id="sigDrawMode">
+        <canvas id="sigCanvas" width="440" height="150" style="border:2px solid var(--border);border-radius:8px;cursor:crosshair;background:#fff;width:100%;display:block;"></canvas>
+        <p style="font-size:.74rem;color:var(--text-muted);margin-top:6px;">উপরের বক্সে স্বাক্ষর করুন</p>
+      </div>
+      <div id="sigUploadMode" style="display:none;">
+        <div id="sigUploadPreview" onclick="document.getElementById('sigFile').click()" style="border:2px dashed var(--border);border-radius:8px;padding:30px;text-align:center;cursor:pointer;background:#fff;">
+          <i class="fas fa-upload" style="color:var(--accent);font-size:1.5rem;display:block;margin-bottom:8px;"></i>
+          <span style="font-size:.82rem;color:var(--text-muted);">স্বাক্ষরের ছবি আপলোড করুন</span>
+        </div>
+        <input type="file" id="sigFile" accept="image/*" style="display:none;" onchange="previewSignatureUpload(this)">
+      </div>
+      <div id="currentSigPreview" style="margin-top:12px;display:none;">
+        <label class="form-label">বর্তমান স্বাক্ষর:</label>
+        <img id="currentSigImg" src="" style="max-height:60px;border:1px solid var(--border);border-radius:6px;padding:4px;">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal('signatureModal')" class="btn btn-ghost">বাতিল</button>
+      <button onclick="saveOwnerSignature()" class="btn btn-primary"><i class="fas fa-save"></i> স্বাক্ষর সংরক্ষণ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Language Toggle -->
+<div id="langToggle" style="position:fixed;bottom:24px;left:calc(var(--sidebar-w) + 16px);z-index:500;display:flex;gap:0;box-shadow:0 2px 12px rgba(0,0,0,.15);border-radius:20px;overflow:hidden;">
+  <button onclick="setLanguage('bn')" id="langBnBtn" class="btn btn-primary btn-sm" style="border-radius:20px 0 0 20px;padding:6px 14px;">বাংলা</button>
+  <button onclick="setLanguage('en')" id="langEnBtn" class="btn btn-ghost btn-sm" style="border-radius:0 20px 20px 0;padding:6px 14px;">English</button>
+</div>
+
+<!-- ========== JAVASCRIPT ========== -->
+<!-- FIX: Removed type="module" so all functions are accessible from onclick handlers -->
+<!-- Firebase SDK loaded as regular scripts via compat version -->
+<script>
+// ============================================================
+// NOTE: Using Firebase Compat SDK (no ES module needed)
+// This allows all functions to be global (accessible from onclick)
+// ============================================================
+
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+const firebaseConfig = {
+  apiKey:            "AIzaSyC19qXVO3sMbB2OibYOK4tTdJpa-fI2M98",
+  authDomain:        "haji-chan-market.firebaseapp.com",
+  projectId:         "haji-chan-market",
+  storageBucket:     "haji-chan-market.firebasestorage.app",
+  messagingSenderId: "596043711897",
+  appId:             "1:596043711897:web:6de6044757ad4be2d07f08"
+};
+
+// ============================================================
+// FIREBASE INIT (using compat CDN loaded below)
+// ============================================================
+let db_fire = null;
+let storage_fire = null;
+let FIREBASE_READY = false;
+let _realtimeUnsubs = [];
+
+function initFirebase() {
+  try {
+    if (typeof firebase === 'undefined') { console.warn('Firebase SDK not loaded'); return; }
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db_fire      = firebase.firestore();
+    storage_fire = firebase.storage();
+    FIREBASE_READY = true;
+    console.log('✅ Firebase connected');
+  } catch(e) {
+    console.warn('⚠️ Firebase init failed, using LocalStorage:', e);
+  }
+}
+
+// ── Real-time listeners ──────────────────────────────────
+function startRealtimeListeners() {
+  if (!FIREBASE_READY) return;
+  _realtimeUnsubs.forEach(u => u());
+  _realtimeUnsubs = [];
+
+  const listen = (collName, setter) => {
+    const unsub = db_fire.collection(collName).onSnapshot(
+      snap => { const data = snap.docs.map(d => ({id:d.id,...d.data()})); localStorage.setItem(collName, JSON.stringify(data)); setter(data); },
+      err  => console.warn('onSnapshot error:', collName, err)
+    );
+    _realtimeUnsubs.push(unsub);
+  };
+
+  listen('tenants',  data => { tenants  = data; renderTenants(); updateNotifications(); });
+  listen('shops',    data => { shops    = data; if(document.getElementById('page-shops').classList.contains('active')) renderShops(); });
+  listen('payments', data => { payments = data; buildMonthFilters(); if(document.getElementById('page-rentCollection').classList.contains('active')) renderPayments(); if(document.getElementById('page-paymentHistory').classList.contains('active')) renderHistory(); });
+}
+
+// ── Firebase Storage helpers ─────────────────────────────
+async function uploadImageToStorage(path, base64DataUrl) {
+  if (!FIREBASE_READY || !storage_fire) return base64DataUrl;
+  try {
+    const ref = storage_fire.ref(path);
+    await ref.putString(base64DataUrl, 'data_url');
+    return await ref.getDownloadURL();
+  } catch(e) { console.warn('Storage upload failed:', e); return base64DataUrl; }
+}
+
+// ============================================================
+// HYBRID DATABASE LAYER
+// ============================================================
+const FDB = {
+  getAll: async (collName) => {
+    if (!FIREBASE_READY) return JSON.parse(localStorage.getItem(collName) || '[]');
+    try {
+      const snap = await db_fire.collection(collName).get();
+      const data = snap.docs.map(d => ({id:d.id,...d.data()}));
+      localStorage.setItem(collName, JSON.stringify(data));
+      return data;
+    } catch(e) { return JSON.parse(localStorage.getItem(collName) || '[]'); }
+  },
+
+  save: async (collName, id, data) => {
+    const all = JSON.parse(localStorage.getItem(collName) || '[]');
+    const idx = all.findIndex(x => x.id === id);
+    const record = {...data, id};
+    if (idx >= 0) all[idx] = record; else all.push(record);
+    localStorage.setItem(collName, JSON.stringify(all));
+    if (!FIREBASE_READY) return true;
+    try {
+      const cleanData = Object.fromEntries(Object.entries(data).filter(([k,v]) => v !== undefined && k !== 'id'));
+      cleanData._updatedAt = new Date().toISOString();
+      await db_fire.collection(collName).doc(id).set(cleanData, {merge:true});
+      return true;
+    } catch(e) { console.warn('Firebase save failed:', e); return false; }
+  },
+
+  delete: async (collName, id) => {
+    const all = JSON.parse(localStorage.getItem(collName) || '[]');
+    localStorage.setItem(collName, JSON.stringify(all.filter(x => x.id !== id)));
+    if (!FIREBASE_READY) return true;
+    try { await db_fire.collection(collName).doc(id).delete(); return true; }
+    catch(e) { console.warn('Firebase delete failed:', e); return false; }
+  },
+
+  getSettings: async () => {
+    if (!FIREBASE_READY) { try { return JSON.parse(localStorage.getItem('settings') || 'null'); } catch { return null; } }
+    try {
+      const d = await db_fire.collection('config').doc('settings').get();
+      if (d.exists) { localStorage.setItem('settings', JSON.stringify(d.data())); return d.data(); }
+      return null;
+    } catch(e) { return JSON.parse(localStorage.getItem('settings') || 'null'); }
+  },
+
+  saveSettings: async (data) => {
+    localStorage.setItem('settings', JSON.stringify(data));
+    if (!FIREBASE_READY) return true;
+    try { await db_fire.collection('config').doc('settings').set(data, {merge:true}); return true; }
+    catch(e) { return false; }
+  },
+
+  addActivity: async (data) => {
+    const all = JSON.parse(localStorage.getItem('activities') || '[]');
+    all.unshift(data);
+    if (all.length > 50) all.length = 50;
+    localStorage.setItem('activities', JSON.stringify(all));
+    if (!FIREBASE_READY) return;
+    try { await db_fire.collection('activities').add({...data, _createdAt: new Date().toISOString()}); }
+    catch(e) { /* silent */ }
+  },
+
+  getActivities: async () => {
+    if (!FIREBASE_READY) return JSON.parse(localStorage.getItem('activities') || '[]');
+    try {
+      const snap = await db_fire.collection('activities').orderBy('_createdAt','desc').limit(50).get();
+      return snap.docs.map(d => ({id:d.id,...d.data()}));
+    } catch(e) { return JSON.parse(localStorage.getItem('activities') || '[]'); }
+  }
+};
+
+const DB = {
+  get: (key) => { try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; } },
+  set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
+  getObj: (key, def={}) => { try { return JSON.parse(localStorage.getItem(key)) || def; } catch { return def; } },
+};
+
+// ── App State ─────────────────────────────────────────────
+let tenants    = DB.get('tenants');
+let shops      = DB.get('shops');
+let payments   = DB.get('payments');
+let activities = DB.get('activities');
+let settings   = DB.getObj('settings', {
+  mktName:    'হাজী চাঁন মিয়া মার্কেট',
+  mktAddress: 'ডি.টি রোড, বার কোয়াটার, পাহাড়তলী, চট্টগ্রাম।',
+  mktPhone:   '০১৭৪৭৩৯৫৩২১',
+  mktOwner:   'মোঃ জয়নাল আবেদীন মজুমদার',
+  mktHolding: 'হোল্ডিং নং-২৪৯৩/২৭৯১'
+});
+let currentSlipPayment = null;
+let currentUser = localStorage.getItem('currentUser') || null;
+let ownerSignature = localStorage.getItem('ownerSignature') || '';
+
+// Chart instances
+let dashChartInst=null, shopPieInst=null, incomeChartInst=null, dueChartInst=null, occupancyChartInst=null, agreementChartInst=null;
+
+// Signature vars
+let sigCanvas=null, sigCtx=null, sigDrawing=false, sigMode='draw';
+
+// ============================================================
+// AUTH
+// ============================================================
+function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  if (u === 'admin' && p === 'admin123') {
+    currentUser = u;
+    localStorage.setItem('currentUser', u);
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    init();
+  } else {
+    alert('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড');
+  }
+}
+
+function doLogout() {
+  if (confirm('লগআউট করতে চান?')) { localStorage.removeItem('currentUser'); location.reload(); }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  showSyncOverlay(true);
+  initFirebase();
+  try {
+    if (FIREBASE_READY) {
+      showSyncStatus('Firebase থেকে ডেটা লোড হচ্ছে...');
+      [tenants, shops, payments, activities] = await Promise.all([
+        FDB.getAll('tenants'), FDB.getAll('shops'), FDB.getAll('payments'), FDB.getActivities()
+      ]);
+      showSyncStatus('সব ডেটা লোড হয়েছে ✅');
+    } else {
+      tenants=DB.get('tenants'); shops=DB.get('shops'); payments=DB.get('payments'); activities=DB.get('activities');
+    }
+  } catch(e) {
+    tenants=DB.get('tenants'); shops=DB.get('shops'); payments=DB.get('payments'); activities=DB.get('activities');
+  }
+  await applySettings();
+  setDateDisplay();
+  loadSettingsForm();
+  buildMonthFilters();
+  updateNotifications();
+  showSyncOverlay(false);
+  showPage('dashboard');
+  updateSyncBadge();
+  startRealtimeListeners();
+  const savedLang = localStorage.getItem('appLang') || 'bn';
+  setLanguage(savedLang, false);
+}
+
+function setDateDisplay() {
+  const now = new Date();
+  const opts = { weekday:'long', year:'numeric', month:'long', day:'numeric' };
+  const el = document.getElementById('dashDate');
+  if (el) el.textContent = now.toLocaleDateString('bn-BD', opts);
+  const rDate = document.getElementById('rDate');
+  if (rDate) rDate.value = now.toISOString().split('T')[0];
+  const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const rMonth = document.getElementById('rMonth');
+  if (rMonth) rMonth.value = months[now.getMonth()];
+}
+
+async function applySettings() {
+  const fireSettings = await FDB.getSettings();
+  if (fireSettings) settings = {...settings, ...fireSettings};
+  else settings = DB.getObj('settings', settings);
+}
+
+function loadSettingsForm() {
+  ['mktName','mktAddress','mktPhone','mktOwner','mktHolding'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = settings[id] || '';
+  });
+}
+
+async function saveSettings() {
+  settings.mktName    = document.getElementById('mktName').value;
+  settings.mktAddress = document.getElementById('mktAddress').value;
+  settings.mktPhone   = document.getElementById('mktPhone').value;
+  settings.mktOwner   = document.getElementById('mktOwner').value;
+  settings.mktHolding = document.getElementById('mktHolding').value;
+  await FDB.saveSettings(settings);
+  addActivity('সেটিংস আপডেট করা হয়েছে', 'cog', '#6b7280');
+  showToast('সেটিংস সংরক্ষণ হয়েছে ☁️');
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pg = document.getElementById('page-' + pageId);
+  if (pg) { pg.classList.add('active'); }
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + pageId + "'")) n.classList.add('active');
+  });
+  if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('mobile-open');
+  if (pageId === 'dashboard')      renderDashboard();
+  else if (pageId === 'tenants')   renderTenants();
+  else if (pageId === 'shops')     renderShops();
+  else if (pageId === 'rentCollection') { populateRentTenantSelect(); renderPayments(); }
+  else if (pageId === 'paymentHistory') renderHistory();
+  else if (pageId === 'agreements')     renderAgreements();
+  else if (pageId === 'reports')        renderReports();
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  if (window.innerWidth < 768) sb.classList.toggle('mobile-open');
+}
+
+// ============================================================
+// DARK MODE
+// ============================================================
+function toggleDarkMode() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('darkBtn').innerHTML = isDark ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+  localStorage.setItem('darkMode', isDark ? 'light' : 'dark');
+  setTimeout(() => { renderDashboard(); renderReports(); }, 100);
+}
+
+(function() {
+  const saved = localStorage.getItem('darkMode');
+  if (saved === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    setTimeout(() => { const btn=document.getElementById('darkBtn'); if(btn) btn.innerHTML='<i class="fas fa-sun"></i>'; }, 100);
+  }
+})();
+
+// ============================================================
+// MODAL
+// ============================================================
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+window.addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('open'); });
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg, type='success') {
+  const t = document.createElement('div');
+  const colors = { success:'#16a34a', error:'#dc2626', warning:'#d97706' };
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (colors[type]||colors.success) + ';color:#fff;padding:12px 18px;border-radius:10px;font-size:0.87rem;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);transform:translateY(20px);opacity:0;transition:all 0.3s;font-family:Hind Siliguri,sans-serif;max-width:300px;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.transform='translateY(0)'; t.style.opacity='1'; }, 50);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+// ============================================================
+// ACTIVITIES
+// ============================================================
+async function addActivity(text, icon='circle', color='#16a34a') {
+  const entry = { text, icon, color, time: new Date().toISOString() };
+  await FDB.addActivity(entry);
+  activities = await FDB.getActivities();
+}
+
+// ============================================================
+// TENANT CRUD
+// ============================================================
+function openTenantModal(id) {
+  id = id || null;
+  ['tenantId','tName','tMobile','tNid','tDeduction','tRent','tAdvance','tAddress','tNotes','nidFrontData','nidBackData'].forEach(f => {
+    const el = document.getElementById(f); if (el) el.value = '';
+  });
+  // Reset NID previews
+  const nfp = document.getElementById('nidFrontPreview');
+  const nbp = document.getElementById('nidBackPreview');
+  const nidIcon = '<span><i class="fas fa-id-card" style="display:block;text-align:center;font-size:1.3rem;margin-bottom:4px;color:var(--accent);"></i>ক্লিক করে আপলোড করুন</span>';
+  if (nfp) nfp.innerHTML = nidIcon;
+  if (nbp) nbp.innerHTML = nidIcon;
+  // Reset photo
+  document.getElementById('photoPreview').innerHTML = '<i class="fas fa-camera" style="color:var(--accent);font-size:1.2rem;"></i><span style="font-size:0.68rem;color:var(--text-muted);margin-top:4px;">ছবি আপলোড</span>';
+  document.getElementById('photoPreview').dataset.photo = '';
+  populateShopSelect();
+  const now = new Date();
+  document.getElementById('tStartDate').value = now.toISOString().split('T')[0];
+  const endDate = new Date(now); endDate.setFullYear(endDate.getFullYear() + 1);
+  document.getElementById('tEndDate').value = endDate.toISOString().split('T')[0];
+
+  if (id) {
+    const t = tenants.find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('tenantModalTitle').textContent = 'ভাড়াটিয়ার তথ্য সম্পাদনা';
+    document.getElementById('tenantId').value    = t.id;
+    document.getElementById('tName').value       = t.name;
+    document.getElementById('tMobile').value     = t.mobile;
+    document.getElementById('tNid').value        = t.nid || '';
+    document.getElementById('tShop').value       = t.shop;
+    document.getElementById('tFloor').value      = t.floor;
+    document.getElementById('tRent').value       = t.rent;
+    document.getElementById('tAdvance').value    = t.advance || '';
+    document.getElementById('tAddress').value    = t.address || '';
+    document.getElementById('tNotes').value      = t.notes || '';
+    document.getElementById('tStartDate').value  = t.startDate || '';
+    document.getElementById('tEndDate').value    = t.endDate || '';
+    if (document.getElementById('tDeduction')) document.getElementById('tDeduction').value = t.deduction || '';
+    // NID photos
+    if (t.nidFront && nfp) nfp.innerHTML = '<img src="' + t.nidFront + '" style="width:100%;height:100%;object-fit:cover;">';
+    if (t.nidBack  && nbp) nbp.innerHTML = '<img src="' + t.nidBack  + '" style="width:100%;height:100%;object-fit:cover;">';
+    if (t.nidFront) { const el=document.getElementById('nidFrontData'); if(el) el.value=t.nidFront; }
+    if (t.nidBack)  { const el=document.getElementById('nidBackData');  if(el) el.value=t.nidBack; }
+    // Photo
+    if (t.photo) {
+      // FIX: was a broken backtick template — now properly concatenated string
+      document.getElementById('photoPreview').innerHTML = '<img src="' + t.photo + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+      document.getElementById('photoPreview').dataset.photo = t.photo;
+    }
+  } else {
+    document.getElementById('tenantModalTitle').textContent = 'নতুন ভাড়াটিয়া যোগ করুন';
+  }
+  openModal('tenantModal');
+}
+
+function populateShopSelect() {
+  const sel = document.getElementById('tShop');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- দোকান নির্বাচন --</option>';
+  shops.forEach(s => { const opt=document.createElement('option'); opt.value=s.number; opt.textContent=s.number+' ('+s.floor+')'; sel.appendChild(opt); });
+  if (shops.length === 0) {
+    ['A-01','A-02','B-01','B-02'].forEach(n => { const opt=document.createElement('option'); opt.value=n; opt.textContent=n; sel.appendChild(opt); });
+  }
+}
+
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('photoPreview').innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+    document.getElementById('photoPreview').dataset.photo = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveTenant() {
+  const name   = document.getElementById('tName').value.trim();
+  const mobile = document.getElementById('tMobile').value.trim();
+  const shop   = document.getElementById('tShop').value.trim();
+  const rent   = document.getElementById('tRent').value;
+  if (!name || !mobile || !shop || !rent) { showToast('অনুগ্রহ করে সব প্রয়োজনীয় তথ্য পূরণ করুন', 'error'); return; }
+  const id = document.getElementById('tenantId').value;
+  const photoEl = document.getElementById('photoPreview');
+  const photo = photoEl.dataset.photo || (photoEl.querySelector('img') ? photoEl.querySelector('img').src : '');
+  const tenantId = id || 'T' + Date.now();
+
+  let photoUrl = photo;
+  if (photo && photo.startsWith('data:') && FIREBASE_READY) {
+    showSyncStatus('ছবি আপলোড হচ্ছে...');
+    photoUrl = await uploadImageToStorage('tenants/' + tenantId + '/photo.jpg', photo);
+  }
+
+  const nidFrontRaw = (document.getElementById('nidFrontData') || {}).value || '';
+  const nidBackRaw  = (document.getElementById('nidBackData')  || {}).value || '';
+  let nidFrontUrl = nidFrontRaw, nidBackUrl = nidBackRaw;
+  if (nidFrontRaw && nidFrontRaw.startsWith('data:') && FIREBASE_READY) {
+    nidFrontUrl = await uploadImageToStorage('tenants/' + tenantId + '/nid_front.jpg', nidFrontRaw);
+  }
+  if (nidBackRaw && nidBackRaw.startsWith('data:') && FIREBASE_READY) {
+    nidBackUrl = await uploadImageToStorage('tenants/' + tenantId + '/nid_back.jpg', nidBackRaw);
+  }
+
+  const existing = id ? tenants.find(x => x.id === id) : null;
+  const t = {
+    id: tenantId, name, mobile,
+    nid:       document.getElementById('tNid').value,
+    shop,      floor:     document.getElementById('tFloor').value,
+    rent:      parseFloat(rent),
+    advance:   parseFloat(document.getElementById('tAdvance').value)    || 0,
+    deduction: parseFloat((document.getElementById('tDeduction')||{}).value) || 0,
+    address:   document.getElementById('tAddress').value,
+    notes:     document.getElementById('tNotes').value,
+    startDate: document.getElementById('tStartDate').value,
+    endDate:   document.getElementById('tEndDate').value,
+    photo: photoUrl || '',
+    nidFront: nidFrontUrl || '',
+    nidBack:  nidBackUrl  || '',
+    serial:      id ? (existing ? existing.serial : tenants.length+1) : tenants.length+1,
+    slipCounter: id ? (existing ? existing.slipCounter||0 : 0) : 0
+  };
+
+  showToast('সংরক্ষণ হচ্ছে...');
+  await FDB.save('tenants', t.id, t);
+  tenants = await FDB.getAll('tenants');
+
+  if (!id) {
+    const shopIdx = shops.findIndex(s => s.number === shop);
+    if (shopIdx >= 0) { shops[shopIdx].status = 'occupied'; await FDB.save('shops', shops[shopIdx].id, shops[shopIdx]); }
+  }
+  addActivity((id ? 'ভাড়াটিয়া সম্পাদিত: ' : 'নতুন ভাড়াটিয়া: ') + name, id?'user-edit':'user-plus', id?'#2563eb':'#16a34a');
+  closeModal('tenantModal');
+  renderTenants();
+  updateNotifications();
+  showToast(id ? 'ভাড়াটিয়ার তথ্য আপডেট হয়েছে ☁️' : 'নতুন ভাড়াটিয়া যোগ হয়েছে ☁️');
+}
+
+async function deleteTenant(id) {
+  if (!confirm('এই ভাড়াটিয়া মুছে ফেলতে চান?')) return;
+  const t = tenants.find(x => x.id === id);
+  await FDB.delete('tenants', id);
+  tenants = await FDB.getAll('tenants');
+  addActivity('ভাড়াটিয়া মুছে ফেলা হয়েছে: ' + (t ? t.name : ''), 'trash', '#dc2626');
+  renderTenants();
+  updateNotifications();
+  showToast('ভাড়াটিয়া মুছে ফেলা হয়েছে ☁️', 'error');
+}
+
+function viewTenant(id) {
+  const t = tenants.find(x => x.id === id);
+  if (!t) return;
+  const status = getAgreementStatus(t);
+  const tenantPayments = payments.filter(p => p.tenantId === id);
+  const totalPaid = tenantPayments.reduce((a,b) => a+(b.paid||0), 0);
+  const totalDue  = tenantPayments.reduce((a,b) => a+(b.due||0),  0);
+  const photoHtml = t.photo
+    ? '<img src="' + t.photo + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);">'
+    : '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#14532d,#16a34a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.8rem;font-weight:700;">' + t.name.charAt(0) + '</div>';
+
+  const recentPayments = tenantPayments.slice(-5).reverse().map(p =>
+    '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem;">' +
+    '<span>' + p.month + ' ' + (p.year||'') + '</span>' +
+    '<span>৳' + (p.paid||0).toLocaleString() + ' পরিশোধিত</span>' +
+    '<span class="badge ' + (p.status==='paid'?'badge-green':p.status==='partial'?'badge-yellow':'badge-red') + '">' + (p.status==='paid'?'পরিশোধিত':p.status==='partial'?'আংশিক':'বাকি') + '</span>' +
+    '</div>'
+  ).join('') || '<p style="color:var(--text-muted);font-size:0.83rem;">কোনো পেমেন্ট নেই</p>';
+
+  document.getElementById('tenantViewContent').innerHTML =
+    '<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">' +
+    '<div style="text-align:center;flex-shrink:0;">' + photoHtml +
+    '<span class="badge ' + status.cls + '" style="margin-top:8px;">' + status.label + '</span></div>' +
+    '<div style="flex:1;"><h2 style="font-size:1.2rem;font-weight:700;color:var(--text-primary);">' + t.name + '</h2>' +
+    '<p style="color:var(--text-muted);font-size:0.83rem;margin-bottom:10px;">' + t.mobile + (t.nid ? ' • NID: '+t.nid : '') + '</p>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.83rem;">' +
+    '<div><b>দোকান:</b> ' + t.shop + '</div><div><b>ফ্লোর:</b> ' + t.floor + '</div>' +
+    '<div><b>মাসিক ভাড়া:</b> ৳' + t.rent.toLocaleString() + '</div><div><b>অগ্রিম:</b> ৳' + (t.advance||0).toLocaleString() + '</div>' +
+    '<div><b>চুক্তি শুরু:</b> ' + (t.startDate||'-') + '</div><div><b>চুক্তি শেষ:</b> ' + (t.endDate||'-') + '</div>' +
+    '<div><b>মোট পরিশোধিত:</b> ৳' + totalPaid.toLocaleString() + '</div><div><b>মোট বাকি:</b> ৳' + totalDue.toLocaleString() + '</div></div>' +
+    (t.address ? '<p style="margin-top:8px;font-size:0.82rem;"><b>ঠিকানা:</b> ' + t.address + '</p>' : '') +
+    '<div style="margin-top:12px;display:flex;gap:8px;">' +
+    '<button onclick="closeModal(\'tenantViewModal\');openTenantModal(\'' + t.id + '\')" class="btn btn-outline btn-sm"><i class="fas fa-edit"></i> সম্পাদনা</button>' +
+    '<a href="tel:' + t.mobile + '" class="btn btn-gray btn-sm"><i class="fas fa-phone"></i> কল</a>' +
+    '<a href="https://wa.me/88' + t.mobile.replace(/[^0-9]/g,'') + '" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff;"><i class="fab fa-whatsapp"></i></a>' +
+    '</div></div></div>' +
+    '<hr style="margin:16px 0;border-color:var(--border);">' +
+    '<h4 style="font-weight:700;margin-bottom:10px;font-size:0.9rem;">সাম্প্রতিক পেমেন্ট</h4>' + recentPayments;
+  openModal('tenantViewModal');
+}
+
+function getAgreementStatus(t) {
+  if (!t.endDate) return { label:'অজানা', cls:'badge-gray', days:null };
+  const end  = new Date(t.endDate);
+  const today = new Date();
+  const days = Math.ceil((end - today) / (1000*60*60*24));
+  if (days < 0)  return { label:'মেয়াদ উত্তীর্ণ', cls:'badge-red',    days };
+  if (days <= 30) return { label:days + ' দিন বাকি', cls:'badge-yellow', days };
+  return { label:'সক্রিয়', cls:'badge-green', days };
+}
+
+function renderTenants() {
+  tenants = DB.get('tenants');
+  const search  = (document.getElementById('tenantSearch')?.value||'').toLowerCase();
+  const floor   = document.getElementById('tenantFloorFilter')?.value||'';
+  const statusF = document.getElementById('tenantStatusFilter')?.value||'';
+  const sort    = document.getElementById('tenantSort')?.value||'name';
+
+  let list = tenants.filter(t => {
+    const matchSearch = !search || t.name.toLowerCase().includes(search) || t.mobile.includes(search) || (t.nid||'').includes(search);
+    const matchFloor  = !floor  || t.floor === floor;
+    let matchStatus   = true;
+    if (statusF) {
+      const st = getAgreementStatus(t);
+      if (statusF==='active'   && st.days!==null && (st.days<0||st.days<=30)) matchStatus=false;
+      if (statusF==='expiring' && (st.days===null||st.days<0||st.days>30))    matchStatus=false;
+      if (statusF==='expired'  && (st.days===null||st.days>=0))               matchStatus=false;
+    }
+    return matchSearch && matchFloor && matchStatus;
+  });
+  list.sort((a,b) => {
+    if (sort==='name') return a.name.localeCompare(b.name);
+    if (sort==='shop') return (a.shop||'').localeCompare(b.shop||'');
+    if (sort==='rent') return b.rent - a.rent;
+    return 0;
+  });
+
+  const tbody = document.getElementById('tenantTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = list.map(t => {
+    const st = getAgreementStatus(t);
+    const photoHtml = t.photo
+      ? '<img src="' + t.photo + '" style="width:34px;height:34px;border-radius:50%;object-fit:cover;">'
+      : '<div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#14532d,#16a34a);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.9rem;font-weight:700;">' + t.name.charAt(0) + '</div>';
+    return '<tr>' +
+      '<td>' + photoHtml + '</td>' +
+      '<td><div style="font-weight:600;">' + t.name + '</div><div style="font-size:0.76rem;color:var(--text-muted);">' + t.mobile + '</div></td>' +
+      '<td>' + t.mobile + '</td>' +
+      '<td><span style="font-weight:600;">' + t.shop + '</span><br><span style="font-size:0.76rem;color:var(--text-muted);">' + t.floor + '</span></td>' +
+      '<td><span style="font-weight:700;color:var(--accent);">৳' + t.rent.toLocaleString() + '</span></td>' +
+      '<td><span class="badge ' + st.cls + '">' + st.label + '</span></td>' +
+      '<td><div style="display:flex;gap:4px;">' +
+      '<button onclick="viewTenant(\'' + t.id + '\')" class="btn btn-gray btn-sm"><i class="fas fa-eye"></i></button>' +
+      '<button onclick="openTenantModal(\'' + t.id + '\')" class="btn btn-outline btn-sm"><i class="fas fa-edit"></i></button>' +
+      '<button onclick="quickRent(\'' + t.id + '\')" class="btn btn-primary btn-sm"><i class="fas fa-receipt"></i></button>' +
+      '<button onclick="deleteTenant(\'' + t.id + '\')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>' +
+      '</div></td></tr>';
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted);">কোনো ভাড়াটিয়া পাওয়া যায়নি</td></tr>';
+}
+
+// ============================================================
+// SHOP CRUD
+// ============================================================
+function openShopModal(id) {
+  id = id || null;
+  ['shopId','sNumber','sSize','sRent'].forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
+  if (id) {
+    const s = shops.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('shopModalTitle').textContent = 'দোকান সম্পাদনা';
+    document.getElementById('shopId').value   = s.id;
+    document.getElementById('sNumber').value  = s.number;
+    document.getElementById('sFloor').value   = s.floor;
+    document.getElementById('sSize').value    = s.size || '';
+    document.getElementById('sRent').value    = s.rent || '';
+    document.getElementById('sStatus').value  = s.status;
+  } else {
+    document.getElementById('shopModalTitle').textContent = 'নতুন দোকান যোগ করুন';
+  }
+  openModal('shopModal');
+}
+
+async function saveShop() {
+  const number = document.getElementById('sNumber').value.trim();
+  if (!number) { showToast('দোকান নম্বর আবশ্যক', 'error'); return; }
+  const id = document.getElementById('shopId').value;
+  const s = {
+    id: id || 'S' + Date.now(),
+    number, floor:  document.getElementById('sFloor').value,
+    size:   document.getElementById('sSize').value,
+    rent:   parseFloat(document.getElementById('sRent').value) || 0,
+    status: document.getElementById('sStatus').value
+  };
+  await FDB.save('shops', s.id, s);
+  shops = await FDB.getAll('shops');
+  closeModal('shopModal');
+  renderShops();
+  addActivity('দোকান ' + (id?'সম্পাদিত':'যোগ') + ': ' + number, 'store-alt', '#16a34a');
+  showToast(id ? 'দোকান আপডেট হয়েছে ☁️' : 'দোকান যোগ হয়েছে ☁️');
+}
+
+async function deleteShop(id) {
+  if (!confirm('এই দোকান মুছে ফেলতে চান?')) return;
+  await FDB.delete('shops', id);
+  shops = await FDB.getAll('shops');
+  renderShops();
+  showToast('দোকান মুছে ফেলা হয়েছে ☁️', 'error');
+}
+
+function renderShops() {
+  shops = DB.get('shops');
+  const grid = document.getElementById('shopGrid');
+  if (!grid) return;
+  const statusColors = { occupied:'#dcfce7', empty:'#dbeafe', maintenance:'#fef9c3' };
+  const statusText   = { occupied:'ভাড়া দেওয়া', empty:'খালি', maintenance:'রক্ষণাবেক্ষণ' };
+  const statusCls    = { occupied:'badge-green',  empty:'badge-blue', maintenance:'badge-yellow' };
+  grid.innerHTML = shops.map(s => {
+    const tenant = tenants.find(t => t.shop === s.number);
+    return '<div class="stat-card" style="padding:18px;background:' + (statusColors[s.status]||'#fff') + '22;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
+      '<div><div style="font-size:1.2rem;font-weight:800;color:var(--text-primary);">' + s.number + '</div>' +
+      '<div style="font-size:0.77rem;color:var(--text-muted);">' + s.floor + '</div></div>' +
+      '<span class="badge ' + statusCls[s.status] + '">' + statusText[s.status] + '</span></div>' +
+      (s.rent ? '<div style="font-size:0.85rem;font-weight:700;color:var(--accent);margin-bottom:6px;">৳' + s.rent.toLocaleString() + '/মাস</div>' : '') +
+      (s.size ? '<div style="font-size:0.77rem;color:var(--text-muted);margin-bottom:6px;">' + s.size + ' বর্গফুট</div>' : '') +
+      (tenant ? '<div style="font-size:0.8rem;padding:6px 8px;background:rgba(22,163,74,0.1);border-radius:6px;margin-bottom:8px;"><i class="fas fa-user" style="color:var(--accent);margin-right:4px;"></i>' + tenant.name + '</div>' : '') +
+      '<div style="display:flex;gap:4px;margin-top:8px;">' +
+      '<button onclick="openShopModal(\'' + s.id + '\')" class="btn btn-outline btn-sm"><i class="fas fa-edit"></i></button>' +
+      '<button onclick="deleteShop(\'' + s.id + '\')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>' +
+      '</div></div>';
+  }).join('') || '<div style="grid-column:span 3;text-align:center;padding:40px;color:var(--text-muted);">কোনো দোকান নেই। নতুন দোকান যোগ করুন।</div>';
+}
+
+// ============================================================
+// PAYMENT / RENT
+// ============================================================
+function openRentModal() {
+  ['rShop','rMonthlyRent','rPaid','rDue','rCollector','rNotes'].forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
+  populateRentTenantSelect();
+  document.getElementById('rDate').value = new Date().toISOString().split('T')[0];
+  openModal('rentModal');
+}
+
+function quickRent(tenantId) {
+  showPage('rentCollection');
+  setTimeout(() => {
+    openRentModal();
+    setTimeout(() => { document.getElementById('rTenant').value = tenantId; fillRentInfo(); }, 150);
+  }, 100);
+}
+
+function populateRentTenantSelect() {
+  tenants = DB.get('tenants');
+  const sel = document.getElementById('rTenant');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- ভাড়াটিয়া নির্বাচন করুন --</option>';
+  tenants.forEach(t => { const opt=document.createElement('option'); opt.value=t.id; opt.textContent=t.name+' - '+t.shop; sel.appendChild(opt); });
+}
+
+function fillRentInfo() {
+  const tid = document.getElementById('rTenant').value;
+  const t   = tenants.find(x => x.id === tid);
+  if (!t) return;
+  document.getElementById('rShop').value        = t.shop;
+  document.getElementById('rMonthlyRent').value = t.rent;
+  calcDue();
+}
+
+function calcDue() {
+  const rent = parseFloat(document.getElementById('rMonthlyRent').value) || 0;
+  const paid = parseFloat(document.getElementById('rPaid').value) || 0;
+  document.getElementById('rDue').value = Math.max(0, rent - paid);
+}
+
+async function savePayment() {
+  const tenantId = document.getElementById('rTenant').value;
+  const paid     = parseFloat(document.getElementById('rPaid').value);
+  const month    = document.getElementById('rMonth').value;
+  if (!tenantId || isNaN(paid)) { showToast('অনুগ্রহ করে প্রয়োজনীয় তথ্য পূরণ করুন', 'error'); return; }
+  const tenant = tenants.find(t => t.id === tenantId);
+  const rent   = parseFloat(document.getElementById('rMonthlyRent').value) || (tenant ? tenant.rent : 0);
+  const due    = Math.max(0, rent - paid);
+  const status = paid >= rent ? 'paid' : paid > 0 ? 'partial' : 'due';
+
+  const tenantPayments = payments.filter(p => p.tenantId === tenantId);
+  const slipSerial = tenantPayments.length + 1;
+  const globalSerial = payments.length + 1;
+  const tenantSlipNo = String(slipSerial).padStart(3, '0');
+
+  const tIdx = tenants.findIndex(x => x.id === tenantId);
+  if (tIdx >= 0) { tenants[tIdx].slipCounter = slipSerial; FDB.save('tenants', tenantId, {slipCounter: slipSerial}); }
+
+  const payment = {
+    id: 'P' + Date.now(),
+    tenantId, tenantName: tenant ? tenant.name : '',
+    shop:  document.getElementById('rShop').value,
+    month, year: new Date().getFullYear(),
+    date:  document.getElementById('rDate').value,
+    rent, paid, due, status,
+    collector:    document.getElementById('rCollector').value,
+    notes:        document.getElementById('rNotes').value,
+    slipNo:       globalSerial,
+    tenantSerial: slipSerial,
+    tenantSlipNo: tenantSlipNo
+  };
+
+  showToast('রসিদ সংরক্ষণ হচ্ছে...');
+  await FDB.save('payments', payment.id, payment);
+  payments = await FDB.getAll('payments');
+  addActivity('ভাড়া সংগ্রহ: ' + (tenant?tenant.name:'') + ' - ৳' + paid.toLocaleString(), 'money-bill-wave', '#16a34a');
+  closeModal('rentModal');
+  buildMonthFilters();
+  renderPayments();
+  updateNotifications();
+  showToast('ভাড়া রসিদ তৈরি হয়েছে ☁️');
+  setTimeout(() => viewSlip(payment.id), 400);
+}
+
+function renderPayments() {
+  payments = DB.get('payments');
+  const monthF  = document.getElementById('rcMonthFilter')?.value||'';
+  const statusF = document.getElementById('rcStatusFilter')?.value||'';
+  let list = payments.filter(p => (!monthF || (p.month + ' ' + p.year) === monthF) && (!statusF || p.status === statusF)).reverse();
+
+  const tbody = document.getElementById('paymentTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = list.map(p =>
+    '<tr>' +
+    '<td><span style="font-weight:700;color:var(--accent);">#' + p.slipNo + '</span></td>' +
+    '<td><div style="font-weight:600;">' + p.tenantName + '</div></td>' +
+    '<td>' + p.shop + '</td>' +
+    '<td>' + p.month + ' ' + (p.year||'') + '</td>' +
+    '<td>৳' + (p.rent||0).toLocaleString() + '</td>' +
+    '<td style="color:#16a34a;font-weight:600;">৳' + (p.paid||0).toLocaleString() + '</td>' +
+    '<td style="color:' + (p.due>0?'#dc2626':'#16a34a') + ';font-weight:600;">৳' + (p.due||0).toLocaleString() + '</td>' +
+    '<td><span class="badge ' + (p.status==='paid'?'badge-green':p.status==='partial'?'badge-yellow':'badge-red') + '">' + (p.status==='paid'?'পরিশোধিত':p.status==='partial'?'আংশিক':'বাকি') + '</span></td>' +
+    '<td><div style="display:flex;gap:4px;">' +
+    '<button onclick="viewSlip(\'' + p.id + '\')" class="btn btn-primary btn-sm"><i class="fas fa-receipt"></i></button>' +
+    '<button onclick="deletePayment(\'' + p.id + '\')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>' +
+    '</div></td></tr>'
+  ).join('') || '<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--text-muted);">কোনো পেমেন্ট নেই</td></tr>';
+}
+
+async function deletePayment(id) {
+  if (!confirm('এই রসিদ মুছে ফেলতে চান?')) return;
+  await FDB.delete('payments', id);
+  payments = await FDB.getAll('payments');
+  renderPayments();
+  showToast('রসিদ মুছে ফেলা হয়েছে ☁️', 'error');
+}
+
+// ============================================================
+// SLIP GENERATION
+// ============================================================
+function viewSlip(paymentId) {
+  const p = payments.find(x => x.id === paymentId);
+  if (!p) return;
+  currentSlipPayment = p;
+  const slipHTML =
+    '<div class="slip-container" id="printSlipArea">' +
+    '<div style="text-align:center;font-family:Noto Serif Bengali,serif;font-size:0.78rem;color:#14532d;margin-bottom:10px;">বিছমিল্লাহির রাহমানির রাহীম</div>' +
+    '<div style="display:flex;flex-direction:column;gap:20px;">' +
+    generateSlipCopy(p, settings, 'মালিকের কপি') +
+    '<div style="border-top:2px dashed #16a34a;padding-top:4px;text-align:center;font-size:.7rem;color:#6b7280;font-family:Hind Siliguri,sans-serif;">✂ ---- কাটুন ----</div>' +
+    generateSlipCopy(p, settings, 'ভাড়াটিয়ার কপি') +
+    '</div>' +
+    '<div style="text-align:center;margin-top:12px;font-size:0.72rem;color:#6b7280;font-family:Hind Siliguri,sans-serif;">📌 বিঃদ্রঃ ভাড়া গৃহে কোন প্রকার অবৈধ কার্যকলাপ চলিবে না।</div>' +
+    '</div>';
+  document.getElementById('slipContent').innerHTML = slipHTML;
+  openModal('slipModal');
+}
+
+function generateSlipCopy(p, s, copyLabel) {
+  const ownerSigHtml = ownerSignature
+    ? '<img src="' + ownerSignature + '" style="width:100px;height:30px;object-fit:contain;display:block;margin-bottom:4px;">'
+    : '<div style="border-bottom:1px solid #16a34a;width:100px;height:30px;margin-bottom:4px;"></div>';
+  const dueHtml = p.due > 0
+    ? '<span style="margin-left:auto;">বাকি ঃ</span><span class="slip-field" style="color:#dc2626;font-weight:700;">৳' + (p.due||0).toLocaleString() + '</span><span>টাকা</span>'
+    : '<span style="margin-left:auto;color:#16a34a;font-weight:700;">✓ পূর্ণ পরিশোধিত</span>';
+
+  return '<div class="slip-copy" style="font-family:Noto Serif Bengali,serif;">' +
+    '<div class="slip-decorative" style="margin-bottom:10px;"></div>' +
+    '<div style="text-align:center;margin-bottom:10px;">' +
+    '<div style="font-size:0.74rem;color:#166534;margin-bottom:4px;">বিছমিল্লাহির রাহমানির রাহীম</div>' +
+    '<div class="slip-title-bn">' + (s.mktName||'হাজী চাঁন মিয়া মার্কেট') + '</div>' +
+    '<div class="slip-sub-bn" style="margin-top:4px;">' + (s.mktAddress||'') + '</div>' +
+    '<div class="slip-sub-bn">ফোন ঃ ' + (s.mktPhone||'') + '</div>' +
+    '<div class="slip-sub-bn">' + (s.mktHolding||'') + '</div>' +
+    '<div class="slip-sub-bn">মালিক ঃ ' + (s.mktOwner||'') + '</div></div>' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
+    '<div style="font-size:0.78rem;color:#166534;">নং-</div>' +
+    '<div style="font-size:1.8rem;font-weight:900;color:#14532d;font-family:Noto Serif Bengali,serif;">' + (p.tenantSlipNo||p.slipNo) + '</div>' +
+    '<div class="slip-stamp">ভাড়া রশিদ</div>' +
+    '<div style="margin-left:auto;font-size:0.78rem;color:#166534;">তারিখঃ <span class="slip-field">' + formatBnDate(p.date) + '</span></div></div>' +
+    '<div class="slip-decorative" style="margin-bottom:10px;height:4px;"></div>' +
+    '<div style="font-size:0.82rem;color:#14532d;line-height:2;">' +
+    '<div style="display:flex;align-items:baseline;gap:6px;"><span style="white-space:nowrap;">অস্থায়ী ভাড়াটিয়ার নাম ঃ</span><span class="slip-field" style="flex:1;font-weight:700;">' + p.tenantName + '</span></div>' +
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-top:4px;"><span style="white-space:nowrap;">দোকান নং ঃ</span><span class="slip-field" style="font-weight:700;">' + p.shop + '</span></div>' +
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-top:4px;flex-wrap:wrap;"><span style="white-space:nowrap;">মাসের নাম ঃ</span><span class="slip-field" style="font-weight:700;">' + p.month + ' ' + (p.year||'') + '</span><span style="white-space:nowrap;margin-left:auto;">মাসিক ভাড়া</span><span class="slip-field" style="font-weight:700;">৳' + (p.rent||0).toLocaleString() + '</span><span>টাকা</span></div>' +
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-top:4px;flex-wrap:wrap;"><span>পরিশোধিত ঃ</span><span class="slip-field" style="font-weight:800;font-size:1rem;color:#14532d;">৳' + (p.paid||0).toLocaleString() + '</span><span>টাকা</span>' + dueHtml + '</div>' +
+    (p.collector ? '<div style="margin-top:4px;"><span>সংগ্রহকারী ঃ </span><span class="slip-field">' + p.collector + '</span></div>' : '') +
+    (p.notes ? '<div style="margin-top:4px;font-size:0.77rem;color:#4b5563;"><span>মন্তব্য ঃ </span>' + p.notes + '</div>' : '') +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:10px;border-top:1px dashed #86efac;">' +
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1px solid #16a34a;width:100px;height:30px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>' +
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;">' + ownerSigHtml + '<div>জমিদারের স্বাক্ষর</div></div></div>' +
+    '<div style="text-align:right;margin-top:6px;font-size:0.72rem;color:#86efac;font-style:italic;">' + copyLabel + '</div>' +
+    '<div class="slip-decorative" style="margin-top:8px;"></div>' +
+    '</div>';
+}
+
+function formatBnDate(dateStr) {
+  if (!dateStr) return '...........';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('bn-BD', {day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+function printSlip() {
+  const content = document.getElementById('printSlipArea').innerHTML;
+  const win = window.open('', '_blank', 'width=900,height=600');
+  const html = '<!DOCTYPE html><html><head><title>ভাড়া রশিদ</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>body{font-family:"Noto Serif Bengali","Hind Siliguri",serif;margin:10mm;background:#fff;}' +
+    '.slip-copy{border:2px solid #16a34a;border-radius:4px;padding:16px;position:relative;margin-bottom:12px;}' +
+    '.slip-copy::before{content:"";position:absolute;inset:4px;border:1px solid #86efac;border-radius:2px;pointer-events:none;}' +
+    '.slip-title-bn{font-size:1.8rem;font-weight:800;color:#14532d;}' +
+    '.slip-sub-bn{font-size:0.8rem;color:#166534;}' +
+    '.slip-field{border-bottom:1.5px dashed #16a34a;min-width:80px;display:inline-block;padding:0 4px;}' +
+    '.slip-stamp{background:#16a34a;color:#fff;padding:4px 16px;border-radius:4px;font-size:1.1rem;font-weight:700;display:inline-block;border:2px solid #14532d;}' +
+    '.slip-decorative{border:1px solid #86efac;height:8px;border-radius:2px;background:repeating-linear-gradient(45deg,transparent,transparent 4px,rgba(22,163,74,0.05) 4px,rgba(22,163,74,0.05) 8px);}' +
+    '@media print{@page{margin:10mm;}}</style></head>' +
+    '<body>' + content + '</body></html>';
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+}
+
+function downloadSlipPDF() { printSlip(); showToast('প্রিন্ট ডায়ালগ থেকে "PDF হিসেবে সংরক্ষণ" নির্বাচন করুন'); }
+
+async function downloadSlipJPG() {
+  const el = document.getElementById('printSlipArea');
+  if (!el) { showToast('রসিদ পাওয়া যায়নি', 'error'); return; }
+  if (typeof html2canvas === 'undefined') { showToast('html2canvas লোড হয়নি', 'error'); return; }
+  showToast('JPG তৈরি হচ্ছে...');
+  try {
+    const canvas = await html2canvas(el, {scale:2, backgroundColor:'#fff', useCORS:true});
+    const url = canvas.toDataURL('image/jpeg', 0.95);
+    const a = document.createElement('a');
+    a.download = 'rent_slip_' + (currentSlipPayment ? currentSlipPayment.tenantSlipNo||currentSlipPayment.slipNo : Date.now()) + '.jpg';
+    a.href = url; a.click();
+    showToast('JPG ডাউনলোড হচ্ছে ✅');
+  } catch(e) { showToast('JPG তৈরিতে সমস্যা', 'error'); }
+}
+
+async function shareSlipWhatsApp() {
+  const el = document.getElementById('printSlipArea');
+  if (!el || typeof html2canvas === 'undefined') { sendWhatsApp(); return; }
+  showToast('WhatsApp-এর জন্য ছবি তৈরি হচ্ছে...');
+  try {
+    const canvas = await html2canvas(el, {scale:2, backgroundColor:'#fff', useCORS:true});
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+    if (navigator.share && navigator.canShare && navigator.canShare({files:[new File([blob],'slip.jpg',{type:'image/jpeg'})]})) {
+      await navigator.share({ files:[new File([blob],'rent_slip.jpg',{type:'image/jpeg'})], title:'ভাড়া রশিদ — '+settings.mktName });
+    } else {
+      const url = canvas.toDataURL('image/jpeg', 0.95);
+      const link = document.createElement('a'); link.href=url; link.download='rent_slip.jpg'; link.click();
+      showToast('ছবি ডাউনলোড করে WhatsApp-এ শেয়ার করুন');
+      if (currentSlipPayment) {
+        const tenant = tenants.find(t => t.id === currentSlipPayment.tenantId);
+        if (tenant && tenant.mobile) setTimeout(() => window.open('https://wa.me/88'+tenant.mobile.replace(/[^0-9]/g,''), '_blank'), 1000);
+      }
+    }
+  } catch(e) { sendWhatsApp(); }
+}
+
+function sendWhatsApp() {
+  if (!currentSlipPayment) return;
+  const p = currentSlipPayment;
+  const t = tenants.find(x => x.id === p.tenantId);
+  if (!t || !t.mobile) { showToast('ভাড়াটিয়ার মোবাইল নম্বর নেই', 'error'); return; }
+  const msg = encodeURIComponent('📋 *ভাড়া রশিদ - ' + settings.mktName + '*\n\nরসিদ নং: #' + p.slipNo + '\nনাম: ' + p.tenantName + '\nদোকান: ' + p.shop + '\nমাস: ' + p.month + ' ' + p.year + '\nভাড়া: ৳' + p.rent + '\nপরিশোধিত: ৳' + p.paid + '\nবাকি: ৳' + p.due + '\nতারিখ: ' + p.date + '\n\nধন্যবাদ।');
+  window.open('https://wa.me/88' + t.mobile.replace(/[^0-9]/g,'') + '?text=' + msg, '_blank');
+}
+
+// ============================================================
+// PAYMENT HISTORY
+// ============================================================
+function buildMonthFilters() {
+  payments = DB.get('payments');
+  const months = [...new Set(payments.map(p => p.month + ' ' + p.year))].sort();
+  ['rcMonthFilter','histMonthFilter'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">সব মাস</option>';
+    months.forEach(m => sel.innerHTML += '<option' + (m===cur?' selected':'') + '>' + m + '</option>');
+  });
+  const histTenant = document.getElementById('histTenantFilter');
+  if (histTenant) {
+    histTenant.innerHTML = '<option value="">সব ভাড়াটিয়া</option>';
+    tenants.forEach(t => { const opt=document.createElement('option'); opt.value=t.id; opt.textContent=t.name; histTenant.appendChild(opt); });
+  }
+  const chartYear = document.getElementById('chartYear');
+  if (chartYear) {
+    const years = [...new Set(payments.map(p => p.year))].sort().reverse();
+    const curYear = new Date().getFullYear();
+    if (!years.includes(curYear)) years.unshift(curYear);
+    const curVal = chartYear.value || curYear;
+    chartYear.innerHTML = years.map(y => '<option' + (y==curVal?' selected':'') + '>' + y + '</option>').join('');
+  }
+}
+
+function renderHistory() {
+  payments = DB.get('payments');
+  const tenantF = document.getElementById('histTenantFilter')?.value||'';
+  const monthF  = document.getElementById('histMonthFilter')?.value||'';
+  let list = payments.filter(p => (!tenantF||p.tenantId===tenantF) && (!monthF||(p.month+' '+p.year)===monthF)).reverse();
+  const totalPaid = list.reduce((a,b) => a+(b.paid||0), 0);
+  const totalDue  = list.reduce((a,b) => a+(b.due||0),  0);
+  const container = document.getElementById('historyContainer');
+  if (!container) return;
+  container.innerHTML =
+    '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">' +
+    '<div class="stat-card" style="padding:12px 18px;flex:1;min-width:140px;"><div style="font-size:0.78rem;color:var(--text-muted);">মোট রসিদ</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent);">' + list.length + 'টি</div></div>' +
+    '<div class="stat-card" style="padding:12px 18px;flex:1;min-width:140px;"><div style="font-size:0.78rem;color:var(--text-muted);">মোট সংগ্রহ</div><div style="font-size:1.3rem;font-weight:700;color:#16a34a;">৳' + totalPaid.toLocaleString() + '</div></div>' +
+    '<div class="stat-card" style="padding:12px 18px;flex:1;min-width:140px;"><div style="font-size:0.78rem;color:var(--text-muted);">মোট বাকি</div><div style="font-size:1.3rem;font-weight:700;color:#dc2626;">৳' + totalDue.toLocaleString() + '</div></div></div>' +
+    '<div class="stat-card" style="padding:0;overflow:hidden;"><div style="overflow-x:auto;"><table class="data-table"><thead><tr>' +
+    '<th>রসিদ নং</th><th>তারিখ</th><th>ভাড়াটিয়া</th><th>দোকান</th><th>মাস</th><th>ভাড়া</th><th>পরিশোধিত</th><th>বাকি</th><th>অবস্থা</th><th></th>' +
+    '</tr></thead><tbody>' +
+    (list.map(p =>
+      '<tr><td><span style="font-weight:700;color:var(--accent);">#' + p.slipNo + '</span></td>' +
+      '<td style="font-size:0.8rem;">' + (p.date||'') + '</td><td>' + p.tenantName + '</td><td>' + p.shop + '</td>' +
+      '<td>' + p.month + ' ' + (p.year||'') + '</td>' +
+      '<td>৳' + (p.rent||0).toLocaleString() + '</td>' +
+      '<td style="color:#16a34a;font-weight:600;">৳' + (p.paid||0).toLocaleString() + '</td>' +
+      '<td style="color:' + (p.due>0?'#dc2626':'#16a34a') + ';font-weight:600;">৳' + (p.due||0).toLocaleString() + '</td>' +
+      '<td><span class="badge ' + (p.status==='paid'?'badge-green':p.status==='partial'?'badge-yellow':'badge-red') + '">' + (p.status==='paid'?'পরিশোধিত':p.status==='partial'?'আংশিক':'বাকি') + '</span></td>' +
+      '<td><button onclick="viewSlip(\'' + p.id + '\')" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i></button></td></tr>'
+    ).join('') || '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text-muted);">কোনো রেকর্ড নেই</td></tr>') +
+    '</tbody></table></div></div>';
+}
+
+function exportPaymentHistory() {
+  const data = JSON.stringify({ payments, tenants, date: new Date().toISOString() }, null, 2);
+  downloadFile('payment_history.json', data, 'application/json');
+  showToast('পেমেন্ট ইতিহাস ডাউনলোড হচ্ছে...');
+}
+
+// ============================================================
+// AGREEMENTS
+// ============================================================
+function renderAgreements() {
+  tenants = DB.get('tenants');
+  const activeTenants = tenants.filter(t => !t.status || t.status !== 'archived');
+  const grid = document.getElementById('agreementGrid');
+  if (!grid) return;
+  const sorted = [...activeTenants].sort((a,b) => {
+    const da=getAgreementStatus(a).days, db2=getAgreementStatus(b).days;
+    if (da===null) return 1; if (db2===null) return -1; return da-db2;
+  });
+  grid.innerHTML = sorted.map(t => {
+    const st = getAgreementStatus(t);
+    const pct = t.startDate && t.endDate ? (() => {
+      const total=new Date(t.endDate)-new Date(t.startDate);
+      const elapsed=new Date()-new Date(t.startDate);
+      return Math.min(100, Math.max(0, Math.round(elapsed/total*100)));
+    })() : 0;
+    const borderColor = st.cls==='badge-red'?'#dc2626':st.cls==='badge-yellow'?'#d97706':'#16a34a';
+    const barColor    = borderColor;
+    return '<div class="stat-card" style="padding:18px;border-left:4px solid ' + borderColor + ';">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
+      '<div><div style="font-weight:700;font-size:0.95rem;">' + t.name + '</div>' +
+      '<div style="font-size:0.78rem;color:var(--text-muted);">' + t.shop + ' • ' + t.floor + '</div></div>' +
+      '<span class="badge ' + st.cls + '">' + st.label + '</span></div>' +
+      '<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;"><span>শুরু: ' + (t.startDate||'-') + '</span> → <span>শেষ: ' + (t.endDate||'-') + '</span></div>' +
+      '<div style="background:var(--border);border-radius:4px;height:6px;margin-bottom:8px;overflow:hidden;">' +
+      '<div style="height:100%;background:' + barColor + ';width:' + pct + '%;border-radius:4px;"></div></div>' +
+      (st.days!==null&&st.days>=0 ? '<div style="font-size:0.78rem;color:var(--text-muted);">' + pct + '% সম্পন্ন • ' + st.days + ' দিন অবশিষ্ট</div>' : '') +
+      '<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">' +
+      '<button onclick="openTenantModal(\'' + t.id + '\')" class="btn btn-outline btn-sm"><i class="fas fa-sync"></i> নবায়ন</button>' +
+      '<button onclick="openLeaveRequest(\'' + t.id + '\')" class="btn btn-warning btn-sm"><i class="fas fa-door-open"></i> ছাড়ার আবেদন</button>' +
+      '<button onclick="openAgreementUpload(\'' + t.id + '\')" class="btn btn-ghost btn-sm"><i class="fas fa-file-pdf"></i> চুক্তি আপলোড</button>' +
+      '<a href="https://wa.me/88' + (t.mobile||'').replace(/[^0-9]/g,'') + '" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff;"><i class="fab fa-whatsapp"></i></a>' +
+      '</div></div>';
+  }).join('') || '<div style="grid-column:span 3;text-align:center;padding:40px;color:var(--text-muted);">কোনো চুক্তি নেই।</div>';
+}
+
+function showAgreementTab(tab) {
+  ['active','leave','archived'].forEach(t2 => {
+    const capTab = t2.charAt(0).toUpperCase() + t2.slice(1);
+    const el  = document.getElementById('agreementTab'  + capTab);
+    const btn = document.getElementById('agTab' + capTab);
+    if (el)  el.style.display  = t2===tab ? 'block' : 'none';
+    if (btn) btn.className = t2===tab ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  });
+  if (tab==='leave')    renderLeaveRequests();
+  if (tab==='archived') renderArchivedTenants();
+  if (tab==='active')   renderAgreements();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  tenants    = DB.get('tenants');
+  shops      = DB.get('shops');
+  payments   = DB.get('payments');
+  activities = DB.get('activities');
+
+  const thisMonths = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'][new Date().getMonth()];
+  const monthPayments = payments.filter(p => p.month===thisMonths && p.year===new Date().getFullYear());
+  const collected    = monthPayments.reduce((a,b) => a+(b.paid||0), 0);
+  const totalDue     = payments.reduce((a,b) => a+(b.due||0), 0);
+  const expiringCount = tenants.filter(t => { const st=getAgreementStatus(t); return st.days!==null&&st.days>=0&&st.days<=30; }).length;
+  const occupiedShops = shops.filter(s => s.status==='occupied').length;
+
+  const stats = [
+    { label:'মোট ভাড়াটিয়া',  value:tenants.length,                 icon:'fa-users',             bg:'#dcfce7', iconBg:'#16a34a' },
+    { label:'মোট দোকান',       value:shops.length,                   icon:'fa-store-alt',          bg:'#dbeafe', iconBg:'#2563eb' },
+    { label:'মাসিক সংগ্রহ',    value:'৳'+collected.toLocaleString(), icon:'fa-money-bill-wave',    bg:'#d1fae5', iconBg:'#059669' },
+    { label:'বকেয়া ভাড়া',     value:'৳'+totalDue.toLocaleString(),  icon:'fa-exclamation-circle', bg:'#fee2e2', iconBg:'#dc2626' },
+    { label:'মেয়াদ শেষ হচ্ছে', value:expiringCount+'টি',             icon:'fa-calendar-times',     bg:'#fef9c3', iconBg:'#d97706' },
+    { label:'দখলকৃত দোকান',    value:occupiedShops+'/'+shops.length, icon:'fa-door-open',          bg:'#ede9fe', iconBg:'#7c3aed' }
+  ];
+  document.getElementById('statCards').innerHTML = stats.map(s =>
+    '<div class="stat-card fade-in">' +
+    '<div class="icon" style="background:' + s.bg + ';"><i class="fas ' + s.icon + '" style="color:' + s.iconBg + ';"></i></div>' +
+    '<div class="value">' + s.value + '</div>' +
+    '<div class="label">' + s.label + '</div></div>'
+  ).join('');
+
+  // Expiry widget
+  const expiring = tenants.filter(t => { const st=getAgreementStatus(t); return st.days!==null&&st.days<=30; })
+    .sort((a,b) => getAgreementStatus(a).days-getAgreementStatus(b).days).slice(0,6);
+  document.getElementById('expiryWidget').innerHTML = expiring.map(t => {
+    const st = getAgreementStatus(t);
+    return '<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">' +
+      '<div><div style="font-weight:600;font-size:0.85rem;">' + t.name + '</div><div style="font-size:0.75rem;color:var(--text-muted);">' + t.shop + '</div></div>' +
+      '<span class="badge ' + st.cls + '">' + st.label + '</span></div>';
+  }).join('') || '<p style="color:var(--text-muted);font-size:0.83rem;text-align:center;padding:20px;">মেয়াদ শেষ হওয়ার মতো কোনো চুক্তি নেই</p>';
+
+  // Activity timeline
+  document.getElementById('activityTimeline').innerHTML = activities.slice(0,8).map(a =>
+    '<div class="timeline-item">' +
+    '<div class="timeline-dot" style="background:' + a.color + '22;color:' + a.color + ';"><i class="fas fa-' + (a.icon||'circle') + '"></i></div>' +
+    '<div style="flex:1;"><div style="font-size:0.83rem;color:var(--text-primary);">' + a.text + '</div>' +
+    '<div style="font-size:0.74rem;color:var(--text-muted);">' + new Date(a.time).toLocaleString('bn-BD',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}) + '</div></div></div>'
+  ).join('') || '<p style="color:var(--text-muted);font-size:0.83rem;">কোনো কার্যক্রম নেই</p>';
+
+  buildMonthFilters();
+  updateDashChart();
+  renderShopPieChart();
+}
+
+function updateDashChart() {
+  const year = parseInt(document.getElementById('chartYear')?.value || new Date().getFullYear());
+  const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const collected = months.map(m => payments.filter(p=>p.month===m&&p.year===year).reduce((a,b)=>a+(b.paid||0),0));
+  const dues      = months.map(m => payments.filter(p=>p.month===m&&p.year===year).reduce((a,b)=>a+(b.due||0),0));
+  const canvas = document.getElementById('dashChart');
+  if (!canvas) return;
+  if (dashChartInst) dashChartInst.destroy();
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  dashChartInst = new Chart(canvas, {
+    type:'bar',
+    data:{ labels:months.map(m=>m.slice(0,3)), datasets:[
+      { label:'সংগৃহীত', data:collected, backgroundColor:'rgba(22,163,74,0.8)', borderRadius:6 },
+      { label:'বকেয়া',   data:dues,      backgroundColor:'rgba(220,38,38,0.7)',  borderRadius:6 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ labels:{ color:isDark?'#86efac':'#166534', font:{family:'Hind Siliguri'} } } },
+      scales:{ x:{ticks:{color:isDark?'#9ca3af':'#6b7280'}}, y:{ticks:{color:isDark?'#9ca3af':'#6b7280', callback:v=>'৳'+v.toLocaleString()}} }
+    }
+  });
+}
+
+function renderShopPieChart() {
+  const occupied = shops.filter(s=>s.status==='occupied').length;
+  const empty    = shops.filter(s=>s.status==='empty').length;
+  const maint    = shops.filter(s=>s.status==='maintenance').length;
+  const canvas   = document.getElementById('shopPieChart');
+  if (!canvas) return;
+  if (shopPieInst) shopPieInst.destroy();
+  shopPieInst = new Chart(canvas, {
+    type:'doughnut',
+    data:{ labels:['ভাড়া দেওয়া','খালি','রক্ষণাবেক্ষণ'],
+      datasets:[{data:[occupied,empty,maint], backgroundColor:['#16a34a','#2563eb','#d97706'], borderWidth:0}]
+    },
+    options:{responsive:true, maintainAspectRatio:true, plugins:{legend:{display:false}}}
+  });
+  document.getElementById('shopPieLegend').innerHTML =
+    '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;font-size:0.78rem;">' +
+    '<span><span style="color:#16a34a;">■</span> ভাড়া (' + occupied + ')</span>' +
+    '<span><span style="color:#2563eb;">■</span> খালি (' + empty + ')</span>' +
+    '<span><span style="color:#d97706;">■</span> রক্ষণাবেক্ষণ (' + maint + ')</span></div>';
+}
+
+// ============================================================
+// REPORTS
+// ============================================================
+function renderReports() {
+  const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const year    = new Date().getFullYear();
+  const isDark  = document.documentElement.getAttribute('data-theme')==='dark';
+  const tc = isDark?'#86efac':'#166534', mc = isDark?'#9ca3af':'#6b7280';
+  const baseOpts = () => ({
+    responsive:true, maintainAspectRatio:true,
+    plugins:{ legend:{ labels:{ color:tc, font:{family:'Hind Siliguri'} } } },
+    scales:{ x:{ticks:{color:mc}}, y:{ticks:{color:mc, callback:v=>'৳'+v.toLocaleString()}} }
+  });
+
+  const c1=document.getElementById('incomeChart');
+  if (c1) { if(incomeChartInst) incomeChartInst.destroy();
+    incomeChartInst = new Chart(c1, { type:'line', data:{ labels:months.map(m=>m.slice(0,3)),
+      datasets:[{label:'সংগৃহীত ভাড়া', data:months.map(m=>payments.filter(p=>p.month===m&&p.year===year).reduce((a,b)=>a+(b.paid||0),0)),
+      borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,0.1)', fill:true, tension:0.4}]}, options:baseOpts()}); }
+
+  const c2=document.getElementById('dueChart');
+  if (c2) { if(dueChartInst) dueChartInst.destroy();
+    dueChartInst = new Chart(c2, { type:'bar', data:{ labels:months.map(m=>m.slice(0,3)),
+      datasets:[{label:'বকেয়া ভাড়া', data:months.map(m=>payments.filter(p=>p.month===m&&p.year===year).reduce((a,b)=>a+(b.due||0),0)),
+      backgroundColor:'rgba(220,38,38,0.7)', borderRadius:6}]}, options:baseOpts()}); }
+
+  const occ=shops.filter(s=>s.status==='occupied').length, emp=shops.filter(s=>s.status==='empty').length, mnt=shops.filter(s=>s.status==='maintenance').length;
+  const c3=document.getElementById('occupancyChart');
+  if (c3) { if(occupancyChartInst) occupancyChartInst.destroy();
+    occupancyChartInst = new Chart(c3, { type:'pie', data:{ labels:['ভাড়া দেওয়া','খালি','রক্ষণাবেক্ষণ'],
+      datasets:[{data:[occ,emp,mnt], backgroundColor:['#16a34a','#2563eb','#d97706'], borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:tc,font:{family:'Hind Siliguri'}}}}}}); }
+
+  const active  = tenants.filter(t=>{const s=getAgreementStatus(t); return s.days!==null&&s.days>30;}).length;
+  const expiring= tenants.filter(t=>{const s=getAgreementStatus(t); return s.days!==null&&s.days>=0&&s.days<=30;}).length;
+  const expired = tenants.filter(t=>{const s=getAgreementStatus(t); return s.days!==null&&s.days<0;}).length;
+  const c4=document.getElementById('agreementChart');
+  if (c4) { if(agreementChartInst) agreementChartInst.destroy();
+    agreementChartInst = new Chart(c4, { type:'doughnut', data:{ labels:['সক্রিয়','মেয়াদ শেষ হচ্ছে','মেয়াদ উত্তীর্ণ'],
+      datasets:[{data:[active,expiring,expired], backgroundColor:['#16a34a','#d97706','#dc2626'], borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:tc,font:{family:'Hind Siliguri'}}}}}}); }
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function updateNotifications() {
+  tenants  = DB.get('tenants');
+  payments = DB.get('payments');
+  const notifs = [];
+  tenants.forEach(t => {
+    const st = getAgreementStatus(t);
+    if (st.days!==null&&st.days<0)      notifs.push({ type:'danger',  text:t.name+'-এর চুক্তির মেয়াদ উত্তীর্ণ হয়েছে', icon:'calendar-times' });
+    else if (st.days!==null&&st.days<=30) notifs.push({ type:'warning', text:t.name+'-এর চুক্তি '+st.days+' দিনে শেষ হবে', icon:'exclamation-triangle' });
+  });
+  const thisMonths = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'][new Date().getMonth()];
+  const paidThisMonth = new Set(payments.filter(p=>p.month===thisMonths&&p.year===new Date().getFullYear()).map(p=>p.tenantId));
+  tenants.forEach(t => { if (!paidThisMonth.has(t.id)) notifs.push({ type:'info', text:t.name+' এই মাসের ভাড়া দেননি', icon:'money-bill-wave' }); });
+  const badge = document.getElementById('notifBadge');
+  if (badge) badge.style.display = notifs.length>0 ? 'block' : 'none';
+  const colors = { danger:'#dc2626', warning:'#d97706', info:'#2563eb' };
+  document.getElementById('notifList').innerHTML = notifs.slice(0,10).map(n =>
+    '<div class="notification-item unread"><div style="display:flex;align-items:center;gap:8px;">' +
+    '<i class="fas fa-' + n.icon + '" style="color:' + colors[n.type] + ';font-size:0.8rem;"></i>' +
+    '<span style="font-size:0.82rem;color:var(--text-primary);">' + n.text + '</span></div></div>'
+  ).join('') || '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.83rem;">কোনো নোটিফিকেশন নেই</div>';
+}
+
+function toggleNotifPanel() {
+  const p = document.getElementById('notifPanel');
+  p.style.display = p.style.display==='block' ? 'none' : 'block';
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('[onclick="toggleNotifPanel()"]') && !e.target.closest('#notifPanel')) {
+    const p = document.getElementById('notifPanel'); if(p) p.style.display='none';
+  }
+});
+
+// ============================================================
+// SEARCH
+// ============================================================
+function globalSearchFn(q) {
+  if (!q) return;
+  const ql = q.toLowerCase();
+  const found = tenants.filter(t => t.name.toLowerCase().includes(ql)||t.mobile.includes(ql)||t.shop.toLowerCase().includes(ql));
+  if (found.length > 0) {
+    showPage('tenants');
+    const ts = document.getElementById('tenantSearch');
+    if (ts) { ts.value = q; renderTenants(); }
+  }
+}
+
+// ============================================================
+// BACKUP / RESTORE
+// ============================================================
+async function exportBackup() {
+  showToast('ব্যাকআপ তৈরি হচ্ছে...');
+  const [t,s,p] = FIREBASE_READY
+    ? await Promise.all([FDB.getAll('tenants'),FDB.getAll('shops'),FDB.getAll('payments')])
+    : [DB.get('tenants'),DB.get('shops'),DB.get('payments')];
+  const backup = { tenants:t, shops:s, payments:p, settings: await FDB.getSettings()||DB.getObj('settings',{}), exportedAt: new Date().toISOString() };
+  downloadFile('hcm_backup_' + new Date().toISOString().split('T')[0] + '.json', JSON.stringify(backup,null,2), 'application/json');
+  showToast('ব্যাকআপ ডাউনলোড হচ্ছে ☁️');
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (confirm('বিদ্যমান সমস্ত ডেটা প্রতিস্থাপন করবেন?')) {
+        showSyncOverlay(true); showSyncStatus('ডেটা আমদানি হচ্ছে...');
+        if (data.tenants)    DB.set('tenants',   data.tenants);
+        if (data.shops)      DB.set('shops',      data.shops);
+        if (data.payments)   DB.set('payments',   data.payments);
+        if (data.settings)   DB.set('settings',   data.settings);
+        if (FIREBASE_READY) {
+          showSyncStatus('Firebase-এ আপলোড হচ্ছে...');
+          const saves=[];
+          (data.tenants ||[]).forEach(r => r.id && saves.push(FDB.save('tenants',  r.id, r)));
+          (data.shops   ||[]).forEach(r => r.id && saves.push(FDB.save('shops',    r.id, r)));
+          (data.payments||[]).forEach(r => r.id && saves.push(FDB.save('payments', r.id, r)));
+          if (data.settings) saves.push(FDB.saveSettings(data.settings));
+          await Promise.all(saves);
+        }
+        tenants=DB.get('tenants'); shops=DB.get('shops'); payments=DB.get('payments');
+        showSyncOverlay(false);
+        showToast('ব্যাকআপ আমদানি সফল হয়েছে ☁️');
+        showPage('dashboard');
+      }
+    } catch (err) { showSyncOverlay(false); showToast('ব্যাকআপ ফাইল অবৈধ', 'error'); }
+  };
+  reader.readAsText(file);
+  event.target.value='';
+}
+
+function downloadFile(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content],{type}));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+
+function clearAllData() {
+  ['tenants','shops','payments','activities'].forEach(k => localStorage.removeItem(k));
+  tenants=[]; shops=[]; payments=[]; activities=[];
+  showToast('সমস্ত ডেটা মুছে ফেলা হয়েছে', 'error');
+  showPage('dashboard');
+}
+
+// ============================================================
+// DEMO DATA
+// ============================================================
+async function loadDemoData() {
+  if (!confirm('ডেমো ডেটা লোড করবেন?')) return;
+  const demoShops = [
+    {id:'S1',number:'A-01',floor:'নিচতলা',size:'120',rent:8000,status:'occupied'},
+    {id:'S2',number:'A-02',floor:'নিচতলা',size:'100',rent:7000,status:'occupied'},
+    {id:'S3',number:'A-03',floor:'নিচতলা',size:'90', rent:6000,status:'empty'},
+    {id:'S4',number:'B-01',floor:'২য় তলা',size:'80', rent:5000,status:'occupied'},
+    {id:'S5',number:'B-02',floor:'২য় তলা',size:'80', rent:5000,status:'maintenance'},
+    {id:'S6',number:'C-01',floor:'৩য় তলা',size:'70', rent:4000,status:'occupied'},
+  ];
+  const now=new Date();
+  const e1=new Date(now); e1.setDate(e1.getDate()+15);
+  const e2=new Date(now); e2.setDate(e2.getDate()-5);
+  const e3=new Date(now); e3.setFullYear(e3.getFullYear()+1);
+  const demoTenants = [
+    {id:'T1',name:'মোঃ রফিকুল ইসলাম', mobile:'01712345678',nid:'1234567890',shop:'A-01',floor:'নিচতলা',rent:8000,advance:16000,address:'পাহাড়তলী, চট্টগ্রাম', startDate:'2023-01-01',endDate:e1.toISOString().split('T')[0],serial:1,photo:''},
+    {id:'T2',name:'মোছাঃ সালমা বেগম', mobile:'01898765432',nid:'9876543210',shop:'A-02',floor:'নিচতলা',rent:7000,advance:14000,address:'নাসিরাবাদ, চট্টগ্রাম',startDate:'2022-06-01',endDate:e2.toISOString().split('T')[0],serial:2,photo:''},
+    {id:'T3',name:'মোঃ আব্দুল করিম',   mobile:'01611234567',nid:'5678901234',shop:'B-01',floor:'২য় তলা',rent:5000,advance:10000,address:'বায়েজিদ, চট্টগ্রাম',  startDate:'2023-06-01',endDate:e3.toISOString().split('T')[0],serial:3,photo:''},
+    {id:'T4',name:'মোঃ জাহাঙ্গীর আলম', mobile:'01511234567',nid:'3456789012',shop:'C-01',floor:'৩য় তলা',rent:4000,advance:8000, address:'চকবাজার, চট্টগ্রাম', startDate:'2023-03-01',endDate:e3.toISOString().split('T')[0],serial:4,photo:''},
+  ];
+  const months=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট'];
+  const demoPayments=[]; let slipNo=1;
+  demoTenants.forEach((t,ti) => {
+    months.forEach((m,mi) => {
+      if (Math.random()>0.2) {
+        const full=Math.random()>0.3;
+        const paid=full?t.rent:Math.round(t.rent*(0.4+Math.random()*0.4));
+        demoPayments.push({
+          id:'P'+Date.now()+'_'+ti+'_'+mi,
+          tenantId:t.id, tenantName:t.name, shop:t.shop, month:m, year:2024,
+          date:'2024-'+(String(mi+1).padStart(2,'0'))+'-05',
+          rent:t.rent, paid, due:t.rent-paid, status:paid>=t.rent?'paid':paid>0?'partial':'due',
+          collector:'মোঃ আব্দুল হালিম', slipNo:slipNo++, tenantSerial:ti+1, notes:''
+        });
+      }
+    });
+  });
+  const eS=DB.get('shops'), eT=DB.get('tenants'), eP=DB.get('payments');
+  const nS=[...eS,...demoShops.filter(s=>!eS.find(e=>e.id===s.id))];
+  const nT=[...eT,...demoTenants.filter(t=>!eT.find(e=>e.id===t.id))];
+  const nP=[...eP,...demoPayments];
+  DB.set('shops',nS); DB.set('tenants',nT); DB.set('payments',nP);
+  if (FIREBASE_READY) {
+    showSyncOverlay(true); showSyncStatus('Firebase-এ ডেমো ডেটা আপলোড হচ্ছে...');
+    const saves=[];
+    nS.forEach(r=>saves.push(FDB.save('shops',r.id,r)));
+    nT.forEach(r=>saves.push(FDB.save('tenants',r.id,r)));
+    nP.forEach(r=>saves.push(FDB.save('payments',r.id,r)));
+    await Promise.all(saves);
+    showSyncOverlay(false);
+  }
+  tenants=DB.get('tenants'); shops=DB.get('shops'); payments=DB.get('payments');
+  addActivity('ডেমো ডেটা লোড করা হয়েছে','database','#7c3aed');
+  buildMonthFilters();
+  showToast('ডেমো ডেটা সফলভাবে লোড হয়েছে ☁️');
+  showPage('dashboard');
+}
+
+// ============================================================
+// LANGUAGE
+// ============================================================
+let currentLang = 'bn';
+function setLanguage(lang, save=true) {
+  currentLang = lang;
+  if (save) localStorage.setItem('appLang', lang);
+  const bn=document.getElementById('langBnBtn'), en=document.getElementById('langEnBtn');
+  if (bn) { bn.className=lang==='bn'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm'; bn.style.borderRadius='20px 0 0 20px'; bn.style.padding='6px 14px'; }
+  if (en) { en.className=lang==='en'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm'; en.style.borderRadius='0 20px 20px 0'; en.style.padding='6px 14px'; }
+  document.documentElement.lang = lang==='en'?'en':'bn';
+}
+
+// ============================================================
+// NID PHOTO PREVIEW
+// ============================================================
+function previewNID(input, previewId, dataId) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById(previewId);
+    const dataEl  = document.getElementById(dataId);
+    if (preview) preview.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;">';
+    if (dataEl)  dataEl.value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ============================================================
+// OWNER SIGNATURE
+// ============================================================
+function initSignatureCanvas() {
+  setTimeout(() => {
+    sigCanvas = document.getElementById('sigCanvas');
+    if (!sigCanvas) return;
+    sigCtx = sigCanvas.getContext('2d');
+    sigCtx.strokeStyle = '#14532d';
+    sigCtx.lineWidth = 2.5;
+    sigCtx.lineCap = 'round';
+    sigCanvas.onmousedown = e => { sigDrawing=true; sigCtx.beginPath(); const r=sigCanvas.getBoundingClientRect(); sigCtx.moveTo(e.clientX-r.left,e.clientY-r.top); };
+    sigCanvas.onmousemove = e => { if(!sigDrawing) return; const r=sigCanvas.getBoundingClientRect(); sigCtx.lineTo(e.clientX-r.left,e.clientY-r.top); sigCtx.stroke(); };
+    sigCanvas.onmouseup   = () => { sigDrawing=false; };
+    sigCanvas.ontouchstart = e => { e.preventDefault(); sigDrawing=true; sigCtx.beginPath(); const r=sigCanvas.getBoundingClientRect(),t2=e.touches[0]; sigCtx.moveTo(t2.clientX-r.left,t2.clientY-r.top); };
+    sigCanvas.ontouchmove  = e => { e.preventDefault(); if(!sigDrawing) return; const r=sigCanvas.getBoundingClientRect(),t2=e.touches[0]; sigCtx.lineTo(t2.clientX-r.left,t2.clientY-r.top); sigCtx.stroke(); };
+    sigCanvas.ontouchend   = () => { sigDrawing=false; };
+    if (ownerSignature) {
+      const cur=document.getElementById('currentSigPreview'), img=document.getElementById('currentSigImg');
+      if (cur) cur.style.display='block';
+      if (img) img.src=ownerSignature;
+    }
+  }, 200);
+}
+
+function setSignatureMode(mode) {
+  sigMode = mode;
+  const dm=document.getElementById('sigDrawMode'), um=document.getElementById('sigUploadMode');
+  const db=document.getElementById('sigModeDrawBtn'), ub=document.getElementById('sigModeUploadBtn');
+  if (!dm) return;
+  dm.style.display = mode==='draw'?'block':'none';
+  um.style.display = mode==='upload'?'block':'none';
+  db.className = mode==='draw'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
+  ub.className = mode==='upload'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
+  if (mode==='draw') initSignatureCanvas();
+}
+
+function previewSignatureUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { const p=document.getElementById('sigUploadPreview'); if(p) p.innerHTML='<img src="'+e.target.result+'" style="max-height:100px;border-radius:6px;">'; };
+  reader.readAsDataURL(file);
+}
+
+function clearSignature() {
+  if (sigCanvas && sigCtx) sigCtx.clearRect(0,0,sigCanvas.width,sigCanvas.height);
+}
+
+async function saveOwnerSignature() {
+  let sigData = '';
+  if (sigMode==='draw') {
+    if (!sigCanvas) { showToast('ক্যানভাস পাওয়া যায়নি','error'); return; }
+    sigData = sigCanvas.toDataURL('image/png');
+  } else {
+    const img = (document.getElementById('sigUploadPreview')||{}).querySelector('img');
+    if (!img) { showToast('ছবি নির্বাচন করুন','error'); return; }
+    sigData = img.src;
+  }
+  ownerSignature = sigData;
+  localStorage.setItem('ownerSignature', sigData);
+  if (FIREBASE_READY) {
+    showSyncStatus('স্বাক্ষর আপলোড হচ্ছে...');
+    const url = await uploadImageToStorage('config/owner_signature.png', sigData);
+    if (url) ownerSignature = url;
+    await FDB.saveSettings({...settings, ownerSignature:url});
+  }
+  closeModal('signatureModal');
+  showToast('স্বাক্ষর সংরক্ষণ হয়েছে ✅');
+}
+
+// ============================================================
+// LEAVE REQUEST SYSTEM
+// ============================================================
+function openLeaveRequest(tenantId) {
+  const t = tenants.find(x => x.id===tenantId);
+  if (!t) return;
+  document.getElementById('leaveRequestTenantId').value = tenantId;
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('leaveReqDate').value = today;
+  const exitDate = new Date(); exitDate.setMonth(exitDate.getMonth()+3);
+  document.getElementById('leaveExitDate').value = exitDate.toISOString().split('T')[0];
+  document.getElementById('leaveReason').value = '';
+  calcNoticedays();
+  openModal('leaveRequestModal');
+}
+
+function calcNoticedays() {
+  const reqDate  = document.getElementById('leaveReqDate')?.value;
+  const exitDate = document.getElementById('leaveExitDate')?.value;
+  const el = document.getElementById('leaveNoticeDays');
+  if (!reqDate||!exitDate||!el) return;
+  const days = Math.ceil((new Date(exitDate)-new Date(reqDate))/86400000);
+  el.style.display='block';
+  if (days>=90) {
+    el.style.background='#dcfce7'; el.style.color='#166534';
+    el.innerHTML='<i class="fas fa-check-circle"></i> নোটিশ সময়: '+days+' দিন (৩ মাসের শর্ত পূরণ হয়েছে ✅)';
+  } else {
+    el.style.background='#fee2e2'; el.style.color='#991b1b';
+    el.innerHTML='<i class="fas fa-exclamation-circle"></i> নোটিশ সময়: '+days+' দিন (৩ মাস = ৯০ দিন প্রয়োজন ❌)';
+  }
+}
+
+async function saveLeaveRequest() {
+  const tenantId = document.getElementById('leaveRequestTenantId').value;
+  const reqDate  = document.getElementById('leaveReqDate').value;
+  const exitDate = document.getElementById('leaveExitDate').value;
+  const reason   = document.getElementById('leaveReason').value;
+  const days = Math.ceil((new Date(exitDate)-new Date(reqDate))/86400000);
+  if (days<90) { showToast('কমপক্ষে ৩ মাস (৯০ দিন) আগে নোটিশ দিতে হবে','error'); return; }
+  const t = tenants.find(x => x.id===tenantId);
+  if (!t) return;
+  const leaveReq = { id:'LR'+Date.now(), tenantId, tenantName:t.name, shop:t.shop, reqDate, exitDate, reason, days, status:'pending', createdAt:new Date().toISOString() };
+  await FDB.save('leaveRequests', leaveReq.id, leaveReq);
+  t.leaveRequest = leaveReq;
+  await FDB.save('tenants', tenantId, {leaveRequest:leaveReq});
+  tenants = await FDB.getAll('tenants');
+  closeModal('leaveRequestModal');
+  addActivity(t.name+'-এর ছাড়ার আবেদন জমা হয়েছে','door-open','#d97706');
+  showToast('ছাড়ার আবেদন সংরক্ষণ হয়েছে ✅');
+  if (t.mobile) {
+    const msg=encodeURIComponent('📋 *ছেড়ে দেওয়ার আবেদন নিশ্চিতকরণ*\n\nভাড়াটিয়া: '+t.name+'\nদোকান: '+t.shop+'\nআবেদনের তারিখ: '+reqDate+'\nপ্রস্থানের তারিখ: '+exitDate+'\nনোটিশ সময়: '+days+' দিন\n\nধন্যবাদ।');
+    setTimeout(()=>window.open('https://wa.me/88'+t.mobile.replace(/[^0-9]/g,'')+'?text='+msg,'_blank'), 500);
+  }
+  renderAgreements();
+}
+
+async function renderLeaveRequests() {
+  let reqs = [];
+  if (FIREBASE_READY) {
+    try { const snap=await db_fire.collection('leaveRequests').get(); reqs=snap.docs.map(d=>({id:d.id,...d.data()})); }
+    catch(e) { reqs=[]; }
+  }
+  const el = document.getElementById('leaveRequestList');
+  if (!el) return;
+  if (!reqs.length) { el.innerHTML='<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:20px;">কোনো ছাড়ার আবেদন নেই</p>'; return; }
+  el.innerHTML = reqs.map(r => {
+    const daysLeft = Math.ceil((new Date(r.exitDate)-new Date())/86400000);
+    // FIX: was using broken quote escaping — now using proper string concat
+    return '<div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
+      '<div><div style="font-weight:700;font-size:.88rem;">' + r.tenantName + '</div>' +
+      '<div style="font-size:.75rem;color:var(--text-muted);">' + r.shop + ' • আবেদন: ' + r.reqDate + '</div></div>' +
+      '<span class="badge ' + (daysLeft>0?'badge-yellow':'badge-red') + '">' + (daysLeft>0?daysLeft+' দিন বাকি':'মেয়াদ শেষ') + '</span></div>' +
+      '<div style="font-size:.8rem;margin-bottom:8px;">প্রস্থান: <strong>' + r.exitDate + '</strong>' + (r.reason?' — '+r.reason:'') + '</div>' +
+      '<button onclick="archiveTenant(\'' + r.tenantId + '\')" class="btn btn-danger btn-sm"><i class="fas fa-archive"></i> আর্কাইভ করুন</button>' +
+      '</div>';
+  }).join('');
+}
+
+async function archiveTenant(tenantId) {
+  if (!confirm('এই ভাড়াটিয়াকে আর্কাইভ করবেন?')) return;
+  const t = tenants.find(x => x.id===tenantId);
+  if (!t) return;
+  const archived = {...t, archivedAt:new Date().toISOString(), status:'archived'};
+  await FDB.save('archivedTenants', tenantId, archived);
+  await FDB.delete('tenants', tenantId);
+  tenants = await FDB.getAll('tenants');
+  addActivity(t.name+' আর্কাইভ হয়েছেন','archive','#6b7280');
+  showToast(t.name+' আর্কাইভ হয়েছেন');
+  renderAgreements();
+}
+
+async function renderArchivedTenants() {
+  let list = [];
+  if (FIREBASE_READY) {
+    try { const snap=await db_fire.collection('archivedTenants').get(); list=snap.docs.map(d=>({id:d.id,...d.data()})); }
+    catch(e) { list=[]; }
+  }
+  const el = document.getElementById('archivedTenantList');
+  if (!el) return;
+  if (!list.length) { el.innerHTML='<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:20px;">কোনো আর্কাইভ নেই</p>'; return; }
+  el.innerHTML='<div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>নাম</th><th>দোকান</th><th>মাসিক ভাড়া</th><th>আর্কাইভ তারিখ</th></tr></thead><tbody>' +
+    list.map(t=>'<tr><td>'+t.name+'</td><td>'+t.shop+'</td><td>৳'+(t.rent||0).toLocaleString()+'</td><td style="font-size:.78rem;">'+(t.archivedAt||'').split('T')[0]+'</td></tr>').join('') +
+    '</tbody></table></div>';
+}
+
+// ============================================================
+// AGREEMENT UPLOAD
+// ============================================================
+function openAgreementUpload(tenantId) {
+  const t = tenants.find(x => x.id===tenantId);
+  if (!t) return;
+  document.getElementById('agUploadTenantId').value   = tenantId;
+  document.getElementById('agUploadTenantName').value = t.name+' — '+t.shop;
+  document.getElementById('agUploadNote').value       = '';
+  document.getElementById('agFilePreview').innerHTML  = '<i class="fas fa-file-pdf" style="color:#dc2626;font-size:2rem;display:block;margin-bottom:8px;"></i><span style="font-size:.82rem;color:var(--text-muted);">ক্লিক করে PDF/ছবি বেছে নিন</span>';
+  openModal('agreementUploadModal');
+}
+
+function previewAgreementFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const preview = document.getElementById('agFilePreview');
+  if (file.type==='application/pdf') {
+    preview.innerHTML = '<i class="fas fa-file-pdf" style="color:#dc2626;font-size:2rem;display:block;margin-bottom:4px;"></i><span style="font-size:.85rem;font-weight:600;">'+file.name+'</span>';
+  } else {
+    const reader=new FileReader();
+    reader.onload=e=>{ preview.innerHTML='<img src="'+e.target.result+'" style="max-height:100px;border-radius:6px;">'; };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function saveAgreementUpload() {
+  const tenantId = document.getElementById('agUploadTenantId').value;
+  const type     = document.getElementById('agUploadType').value;
+  const note     = document.getElementById('agUploadNote').value;
+  const fileInput= document.getElementById('agFile');
+  const t        = tenants.find(x => x.id===tenantId);
+  if (!t || !fileInput.files[0]) { showToast('ফাইল নির্বাচন করুন','error'); return; }
+  showSyncOverlay(true); showSyncStatus('চুক্তিপত্র আপলোড হচ্ছে...');
+  const file=fileInput.files[0];
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    let fileUrl=e.target.result;
+    if (FIREBASE_READY) fileUrl=await uploadImageToStorage('agreements/'+tenantId+'/'+type+'_'+Date.now(), e.target.result);
+    const agRecord={id:'AG'+Date.now(), tenantId, tenantName:t.name, type, fileUrl, note, fileName:file.name, uploadedAt:new Date().toISOString()};
+    await FDB.save('agreements', agRecord.id, agRecord);
+    showSyncOverlay(false);
+    closeModal('agreementUploadModal');
+    addActivity('চুক্তিপত্র আপলোড: '+t.name,'file-contract','#16a34a');
+    showToast('চুক্তিপত্র সংরক্ষণ হয়েছে ✅');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ============================================================
+// MONTHLY BULK PRINT — single definition (FIX: was declared twice)
+// ============================================================
+function printAllMonthReceipts() {
+  const monthF = document.getElementById('rcMonthFilter')?.value||'';
+  const list   = payments.filter(p => !monthF || (p.month+' '+p.year)===monthF);
+  if (!list.length) { showToast('প্রিন্ট করার মতো কোনো রসিদ নেই','warning'); return; }
+  showToast(list.length+'টি রসিদ প্রিন্ট হচ্ছে...');
+  const s = settings;
+  let allHtml='';
+  list.forEach(p => {
+    allHtml += '<div style="page-break-after:always;">' +
+      generateSlipCopy(p,s,'মালিকের কপি') +
+      '<div style="text-align:center;padding:4px;font-size:.7rem;color:#aaa;">✂ ---- কাটুন ----</div>' +
+      generateSlipCopy(p,s,'ভাড়াটিয়ার কপি') + '</div>';
+  });
+  const win=window.open('','_blank','width=900,height=700');
+  const html='<!DOCTYPE html><html><head><title>মাসিক রসিদ</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">' +
+    '<style>body{font-family:"Noto Serif Bengali","Hind Siliguri",serif;background:#fff;margin:5mm;}' +
+    '.slip-copy{border:2px solid #16a34a;border-radius:3px;padding:14px;position:relative;margin-bottom:8px;}' +
+    '.slip-copy::before{content:"";position:absolute;inset:4px;border:1px solid #86efac;border-radius:2px;pointer-events:none;}' +
+    '.slip-field{border-bottom:1.5px dashed #16a34a;min-width:80px;display:inline-block;padding:0 4px;}' +
+    '.slip-stamp{background:#16a34a;color:#fff;padding:4px 16px;border-radius:4px;font-size:1rem;font-weight:700;display:inline-block;border:2px solid #14532d;}' +
+    '.slip-decorative{border:1px solid #86efac;height:8px;border-radius:2px;}' +
+    '.slip-title-bn{font-size:1.6rem;font-weight:800;color:#14532d;}' +
+    '.slip-sub-bn{font-size:0.78rem;color:#166534;}' +
+    '@media print{@page{size:A4;margin:8mm;}}</style></head>' +
+    '<body>' + allHtml + '<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script></body></html>';
+  win.document.write(html);
+  win.document.close();
+}
+
+// ============================================================
+// FIREBASE SYNC UI
+// ============================================================
+let _syncOverlay = null;
+function showSyncOverlay(show) {
+  if (!_syncOverlay) {
+    _syncOverlay = document.createElement('div');
+    _syncOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9998;display:flex;flex-direction:column;align-items:center;justify-content:center;';
+    _syncOverlay.innerHTML =
+      '<div style="background:#fff;border-radius:16px;padding:32px 40px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.3);font-family:Hind Siliguri,sans-serif;">' +
+      '<div style="width:48px;height:48px;border:4px solid #bbf7d0;border-top-color:#16a34a;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>' +
+      '<div id="syncMsg" style="font-size:1rem;color:#14532d;font-weight:600;">লোড হচ্ছে...</div>' +
+      '<div style="font-size:0.78rem;color:#6b7280;margin-top:6px;">অনুগ্রহ করে অপেক্ষা করুন</div></div>';
+    const style=document.createElement('style'); style.textContent='@keyframes spin{to{transform:rotate(360deg)}}'; document.head.appendChild(style);
+    document.body.appendChild(_syncOverlay);
+  }
+  _syncOverlay.style.display = show?'flex':'none';
+}
+
+function showSyncStatus(msg) { const el=document.getElementById('syncMsg'); if(el) el.textContent=msg; }
+
+function updateSyncBadge() {
+  const existing=document.getElementById('syncBadge'); if(existing) existing.remove();
+  const badge=document.createElement('div'); badge.id='syncBadge';
+  badge.style.cssText='display:flex;align-items:center;gap:5px;font-size:0.72rem;padding:3px 10px;border-radius:20px;font-family:Hind Siliguri,sans-serif;';
+  if (FIREBASE_READY) {
+    badge.style.background='#dcfce7'; badge.style.color='#166534';
+    badge.innerHTML='<span style="width:7px;height:7px;background:#16a34a;border-radius:50%;display:inline-block;"></span> Firebase Live ☁️';
+  } else {
+    badge.style.background='#fef9c3'; badge.style.color='#92400e';
+    badge.innerHTML='<span style="width:7px;height:7px;background:#d97706;border-radius:50%;display:inline-block;"></span> LocalStorage Only';
+  }
+  const darkBtn=document.getElementById('darkBtn');
+  if (darkBtn) darkBtn.parentNode.insertBefore(badge, darkBtn);
+}
+
+// ============================================================
+// ENTRY POINT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  const user = localStorage.getItem('currentUser');
+  if (user) {
+    currentUser = user;
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display   = 'block';
+    init();
+  } else {
+    document.getElementById('loginPage').style.display = 'flex';
+    document.getElementById('mainApp').style.display   = 'none';
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key==='Enter' && document.getElementById('loginPage').style.display!=='none') doLogin();
+  if (e.ctrlKey && e.key==='n') { e.preventDefault(); showPage('rentCollection'); openRentModal(); }
+});
+</script>
+
+<!-- Firebase Compat SDK (loaded after main script so initFirebase runs on DOMContentLoaded) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+</body>
+</html>
