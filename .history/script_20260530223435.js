@@ -1021,10 +1021,10 @@ function generateSlipCopy(p, s, copyType, qrHtml) {
     '<div style="font-size:0.85rem;color:#14532d;line-height:2.2;font-family:\'Noto Sans Bengali\',sans-serif;">'+
     '<div style="display:flex;align-items:baseline;gap:6px;"><span style="white-space:nowrap;min-width:180px;">অস্থায়ী ভাড়াটিয়ার নাম :</span><span class="slip-field" style="flex:1;font-weight:700;font-size:0.95rem;">'+p.tenantName+'</span></div>'+
     '<div style="display:flex;align-items:baseline;gap:6px;"><span style="white-space:nowrap;min-width:180px;">দোকান নং :</span><span class="slip-field" style="font-weight:700;">'+p.shop+'</span></div>'+
-    '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;"><span style="white-space:nowrap;min-width:180px;">মাসের নাম :</span><span class="slip-field" style="font-weight:700;">'+p.month+' '+(p.year||'')+'</span><span style="white-space:nowrap;margin-left:auto;">মাসিক ভাড়া :</span><span class="slip-field" style="font-weight:700;">৳'+(p.rent||0).toLocaleString()+'</span><span>টাকা</span></div>'+
-    '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;"><span style="min-width:80px;">পরিশোধিত :</span><span class="slip-field" style="font-weight:800;font-size:1.05rem;color:#14532d;">৳'+(p.paid||0).toLocaleString()+'</span><span>টাকা</span>'+dueHtml+'</div>'+
-    (p.collector?'<div><span>সংগ্রহকারী : </span><span class="slip-field">'+p.collector+'</span></div>':'')+
-    (p.notes?'<div style="font-size:0.78rem;color:#4b5563;">মন্তব্য : '+p.notes+'</div>':'')+
+    '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;"><span style="white-space:nowrap;min-width:180px;">মাসের নাম ঃ</span><span class="slip-field" style="font-weight:700;">'+p.month+' '+(p.year||'')+'</span><span style="white-space:nowrap;margin-left:auto;">মাসিক ভাড়া :</span><span class="slip-field" style="font-weight:700;">৳'+(p.rent||0).toLocaleString()+'</span><span>টাকা</span></div>'+
+    '<div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;"><span style="min-width:80px;">পরিশোধিত ঃ</span><span class="slip-field" style="font-weight:800;font-size:1.05rem;color:#14532d;">৳'+(p.paid||0).toLocaleString()+'</span><span>টাকা</span>'+dueHtml+'</div>'+
+    (p.collector?'<div><span>সংগ্রহকারী ঃ </span><span class="slip-field">'+p.collector+'</span></div>':'')+
+    (p.notes?'<div style="font-size:0.78rem;color:#4b5563;">মন্তব্য ঃ '+p.notes+'</div>':'')+
     '</div>'+
     // Signatures + QR
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
