@@ -48,10 +48,7 @@ function initDatePickers(){
   ['tStartDate','tEndDate','rDate','leaveReqDate','leaveExitDate','agStartDate','agEndDate'].forEach(id => {
     const el = document.getElementById(id);
     if (!el || el._flatpickr) return;
-    const hooks = {};
-    if (id === 'agStartDate') hooks.onChange = [() => agRecalcEnd()];
-    if (id === 'agEndDate')   hooks.onChange = [() => { const v = document.getElementById('agValidity'); if (v) v.value = 'custom'; }];
-    const fp = flatpickr(el, Object.assign({ dateFormat:'Y-m-d', altInput:true, altFormat:'d/m/Y', allowInput:false, disableMobile:true }, hooks));
+    const fp = flatpickr(el, { dateFormat:'Y-m-d', altInput:true, altFormat:'d/m/Y', allowInput:false, disableMobile:true });
     let busy = false;
     Object.defineProperty(el, 'value', {
       configurable: true,
@@ -1588,7 +1585,7 @@ function renderAgreements() {
       '<div><div style="font-weight:700;font-size:0.95rem;">'+tn.name+'</div>'+
       '<div style="font-size:0.78rem;color:var(--text-muted);">'+tn.shop+' • '+tn.floor+'</div></div>'+
       '<div style="display:flex;gap:4px;flex-wrap:wrap;"><span class="badge '+st.cls+'">'+st.label+'</span>'+leaveTag+'</div></div>'+
-      '<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">শুরু: '+(fmtDate(tn.startDate)||'-')+' → শেষ: '+(fmtDate(tn.endDate)||'-')+(validityLabel(tn.startDate,tn.endDate)?' <span class="badge badge-gray" style="margin-left:4px;">মেয়াদ: '+validityLabel(tn.startDate,tn.endDate)+'</span>':'')+'</div>'+
+      '<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">শুরু: '+(fmtDate(tn.startDate)||'-')+' → শেষ: '+(fmtDate(tn.endDate)||'-')+'</div>'+
       '<div style="background:var(--border);border-radius:4px;height:5px;margin-bottom:6px;overflow:hidden;"><div style="height:100%;background:'+bc+';width:'+pct+'%;border-radius:4px;transition:width 0.5s;"></div></div>'+
       (st.days!==null&&st.days>=0?'<div style="font-size:0.75rem;color:var(--text-muted);">'+pct+'% সম্পন্ন • '+st.days+' দিন অবশিষ্ট</div>':'')+
       '<div style="display:flex;gap:5px;margin-top:10px;flex-wrap:wrap;">'+
@@ -1746,34 +1743,6 @@ function viewArchivedTenant(id) {
 }
 
 // ── Agreement Upload ─────────────────────────────────────────
-
-// ── চুক্তির মেয়াদ (validity) ─────────────────────────────────
-function validityLabel(start, end) {
-  if (!start || !end) return '';
-  const a = new Date(start), b = new Date(end);
-  if (isNaN(a) || isNaN(b) || b < a) return '';
-  const days = Math.round((b - a) / 86400000) + 1;      // shesh din soho
-  const m = Math.round(days / 30.4375);
-  const bn = n => String(n).replace(/[0-9]/g, d => '০১২৩৪৫৬৭৮৯'[d]);
-  if (days < 30 || m < 1) return bn(days) + ' দিন';
-  const y = Math.floor(m / 12), r = m % 12;
-  const parts = [];
-  if (y) parts.push(bn(y) + ' বছর');
-  if (r) parts.push(bn(r) + ' মাস');
-  return parts.join(' ');
-}
-function agRecalcEnd() {
-  const sel = document.getElementById('agValidity');
-  if (!sel || sel.value === 'custom') return;
-  const start = document.getElementById('agStartDate').value;
-  if (!start) return;
-  const months = parseInt(sel.value, 10);
-  const d = new Date(start + 'T00:00:00');
-  d.setMonth(d.getMonth() + months);
-  d.setDate(d.getDate() - 1);                            // 01/01/2026 + 1 bochor = 31/12/2026
-  document.getElementById('agEndDate').value = isoLocal(d);
-}
-
 function openAgreementUpload(tenantId) {
   const tn=tenants.find(x=>x.id===tenantId);
   if (!tn) return;
@@ -1783,8 +1752,8 @@ function openAgreementUpload(tenantId) {
   const _agf=document.getElementById('agFile'); if(_agf) _agf.value='';
   document.getElementById('agFilePreview').innerHTML  = '<i class="fas fa-file-pdf" style="color:#dc2626;font-size:2rem;display:block;margin-bottom:8px;"></i><span style="font-size:.82rem;color:var(--text-muted);">ক্লিক করে PDF/ছবি বেছে নিন</span>';
   const now=new Date(); document.getElementById('agStartDate').value=isoLocal(now);
-  const _v=document.getElementById('agValidity'); if(_v) _v.value='12';
-  agRecalcEnd();
+  const end=new Date(now); end.setFullYear(end.getFullYear()+1);
+  document.getElementById('agEndDate').value=isoLocal(end);
   openModal('agreementUploadModal');
 }
 
@@ -1836,7 +1805,7 @@ async function saveAgreementUpload() {
       id: agId, tenantId, tenantName: tn.name, type, note,
       fileName: file.name, fileType: isPdf ? 'application/pdf' : 'image/jpeg',
       size: file.size, chunks: chunks.length,
-      startDate, endDate, validity: validityLabel(startDate, endDate), uploadedAt: new Date().toISOString()
+      startDate, endDate, uploadedAt: new Date().toISOString()
     };
 
     // 2) save file data
@@ -1900,42 +1869,13 @@ async function openAgreementView(tenantId) {
     '<div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;">'+
     '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">'+
     '<div><div style="font-weight:600;font-size:.88rem;"><i class="fas fa-'+(a.fileType==='application/pdf'?'file-pdf':'image')+'" style="color:'+(a.fileType==='application/pdf'?'#dc2626':'#2563eb')+';margin-right:6px;"></i>'+(a.fileName||'চুক্তি')+'</div>'+
-    '<div style="font-size:.74rem;color:var(--text-muted);">'+(a.type==='renewal'?'নবায়ন':'নতুন')+' • '+(fmtDate(a.startDate)||'-')+' → '+(fmtDate(a.endDate)||'-')+(validityLabel(a.startDate,a.endDate)?' • মেয়াদ: <b>'+validityLabel(a.startDate,a.endDate)+'</b>':'')+'</div>'+
+    '<div style="font-size:.74rem;color:var(--text-muted);">'+(a.type==='renewal'?'নবায়ন':'নতুন')+' • '+(fmtDate(a.startDate)||'-')+' → '+(fmtDate(a.endDate)||'-')+'</div>'+
     (a.note?'<div style="font-size:.74rem;color:var(--text-muted);">'+a.note+'</div>':'')+'</div>'+
     '<div style="display:flex;gap:6px;">'+
     '<button onclick="viewAgreementFile(\''+a.id+'\','+(a.chunks||1)+',\''+(a.fileType||'')+'\')" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i> দেখুন</button>'+
-    '<button onclick="deleteAgreement(\''+a.id+'\',\''+tenantId+'\','+(a.chunks||1)+')" class="btn btn-danger btn-sm" title="মুছুন"><i class="fas fa-trash"></i></button>'+
     '<button onclick="downloadAgreementFile(\''+a.id+'\','+(a.chunks||1)+',\''+encodeURIComponent(a.fileName||'agreement')+'\')" class="btn btn-outline btn-sm"><i class="fas fa-download"></i></button>'+
     '</div></div></div>'
   ).join('') + '<div id="agreementPreviewArea" style="margin-top:8px;"></div>';
-}
-
-
-async function deleteAgreement(agId, tenantId, chunkCount) {
-  if (!confirm('এই চুক্তিপত্রটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
-  showSyncOverlay(true, 'চুক্তিপত্র মুছে ফেলা হচ্ছে...');
-  try {
-    if (FIREBASE_READY) {
-      const ref = db_fire.collection('agreements').doc(agId);
-      const snap = await ref.collection('chunks').get();
-      const batch = db_fire.batch();
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-    }
-    await FDB.delete('agreements', agId);
-    const key = 'agHistory_' + tenantId;
-    const hist = JSON.parse(localStorage.getItem(key) || '[]').filter(x => x.id !== agId);
-    lsSet(key, JSON.stringify(hist));
-    try { localStorage.removeItem('agfile_' + agId); } catch(e) {}
-    addActivity('চুক্তিপত্র মুছে ফেলা হয়েছে', 'trash', '#dc2626');
-    showToast('চুক্তিপত্র মুছে ফেলা হয়েছে', 'error');
-    await openAgreementView(tenantId);
-  } catch (e) {
-    console.error('Agreement delete failed:', e);
-    showToast('মুছতে সমস্যা: ' + (e.message || e), 'error');
-  } finally {
-    showSyncOverlay(false);
-  }
 }
 
 async function loadAgreementDataUrl(agId, chunkCount) {

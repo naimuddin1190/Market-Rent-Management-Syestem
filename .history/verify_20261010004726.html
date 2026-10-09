@@ -58,9 +58,7 @@
   .seal b{color:var(--ink)}
   .actions{padding:0 22px 22px}
   .call{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:12px;background:var(--g800);color:#fff;text-decoration:none;font-weight:600;font-size:.9rem}
-  .call svg{width:18px;height:18px;fill:#fff}
-  .wa{background:#25d366;margin-top:10px}
-  .contact-title{text-align:center;font-size:.72rem;color:var(--muted);margin:2px 0 10px;letter-spacing:.04em}
+  .call svg{width:16px;height:16px;fill:#fff}
   .foot{text-align:center;font-size:.72rem;color:#7b8a81;margin-top:16px;line-height:1.7}
   .skeleton{padding:34px 22px}
   .sk{height:14px;border-radius:7px;background:linear-gradient(90deg,#eef2ef 25%,#f8faf9 50%,#eef2ef 75%);background-size:200% 100%;animation:sh 1.2s infinite;margin:10px auto}
@@ -111,8 +109,6 @@
     appId: "1:596043711897:web:6de6044757ad4be2d07f08"
   };
 
-  var OFFICE_PHONE = '01729723910';
-  var OFFICE_WA = '8801729723910';
   var $ = function(id){ return document.getElementById(id); };
   var NS = 'http://www.w3.org/2000/svg';
 
@@ -149,23 +145,6 @@
     var r = $('result'); r.innerHTML=''; r.appendChild(node); r.classList.remove('hidden');
   }
 
-  function contactActions(){
-    var act = el('div','actions');
-    act.appendChild(el('div','contact-title','যোগাযোগ করুন'));
-    var a = el('a','call');
-    a.href = 'tel:' + OFFICE_PHONE;
-    a.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1l-2.2 2.2z"/></svg>';
-    a.appendChild(document.createTextNode('মার্কেট অফিসে কল করুন'));
-    act.appendChild(a);
-    var w = el('a','call wa');
-    w.href = 'https://wa.me/' + OFFICE_WA;
-    w.target = '_blank'; w.rel = 'noopener';
-    w.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12.04 2a9.9 9.9 0 0 0-8.45 15.05L2 22l5.08-1.56A9.9 9.9 0 1 0 12.04 2zm5.8 14.1c-.25.7-1.45 1.34-2 1.4-.52.06-1.17.09-1.9-.12a17 17 0 0 1-1.72-.64c-3.03-1.3-5-4.35-5.15-4.55-.15-.2-1.23-1.64-1.23-3.13s.78-2.22 1.06-2.52c.28-.3.6-.38.8-.38l.58.01c.19 0 .43-.07.67.5.25.6.84 2.1.91 2.25.08.15.13.33.03.53-.1.2-.15.32-.3.5-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.3.77 1.27 1.65 2.05 1.14 1 2.1 1.32 2.4 1.47.3.15.47.12.65-.07.17-.2.75-.87.95-1.17.2-.3.4-.25.67-.15.28.1 1.75.83 2.05.98.3.15.5.22.57.35.08.12.08.72-.17 1.42z"/></svg>';
-    w.appendChild(document.createTextNode('হোয়াটসঅ্যাপে যোগাযোগ করুন'));
-    act.appendChild(w);
-    return act;
-  }
-
   function renderInvalid(msg){
     var box = el('div');
     var st = el('div','state bad pop');
@@ -178,7 +157,6 @@
     var seal = el('div','seal');
     seal.appendChild(el('div','', 'এই রসিদটি মার্কেটের রেকর্ডে পাওয়া যায়নি। রসিদটি আসল কিনা নিশ্চিত হতে সরাসরি মার্কেট অফিসে যোগাযোগ করুন।'));
     box.appendChild(seal);
-    box.appendChild(contactActions());
     show(box);
   }
 
@@ -239,7 +217,15 @@
     seal.appendChild(t);
     box.appendChild(seal);
 
-    box.appendChild(contactActions());
+    if(r.mktPhone){
+      var act = el('div','actions');
+      var a = el('a','call');
+      a.href = 'tel:'+String(r.mktPhone).replace(/[^0-9+]/g,'');
+      a.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1l-2.2 2.2z"/></svg>';
+      a.appendChild(document.createTextNode('মার্কেট অফিসে কল করুন'));
+      act.appendChild(a);
+      box.appendChild(act);
+    }
     show(box);
   }
 
