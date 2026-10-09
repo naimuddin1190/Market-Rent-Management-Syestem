@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>রসিদ যাচাই | Receipt Verification</title>
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&family=Noto+Serif+Bengali:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --g900:#0f3d22; --g800:#14532d; --g700:#166534; --g600:#16a34a; --g100:#dcfce7; --g50:#f0fdf4;
+    --amber:#d97706; --amber-bg:#fef3c7; --red:#dc2626; --red-bg:#fee2e2;
+    --ink:#10261a; --muted:#5b6b62; --line:#e3ece6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans Bengali',system-ui,sans-serif;background:#eef4f0;color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+  .hero{background:linear-gradient(160deg,var(--g900) 0%,var(--g800) 55%,var(--g700) 100%);color:#fff;padding:26px 20px 92px;text-align:center;position:relative;overflow:hidden}
+  .hero::before,.hero::after{content:'';position:absolute;border-radius:50%;background:rgba(255,255,255,.05)}
+  .hero::before{width:260px;height:260px;top:-120px;right:-80px}
+  .hero::after{width:180px;height:180px;bottom:-90px;left:-60px}
+  .brand{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .logo{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(255,255,255,.25)}
+  .logo img{width:100%;height:100%;object-fit:contain;background:#fff}
+  .logo svg{width:26px;height:26px;fill:#bbf7d0}
+  .brand h1{font-family:'Noto Serif Bengali',serif;font-size:1.35rem;font-weight:800;line-height:1.3}
+  .brand p{font-size:.78rem;color:#bbf7d0;line-height:1.5;max-width:320px}
+  .wrap{max-width:460px;margin:-68px auto 0;padding:0 16px 40px;position:relative}
+  .card{background:#fff;border-radius:20px;box-shadow:0 18px 50px rgba(15,61,34,.16);overflow:hidden;border:1px solid var(--line)}
+  .state{padding:30px 22px 22px;text-align:center}
+  .badge-ring{width:84px;height:84px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center}
+  .badge-ring svg{width:46px;height:46px}
+  .ok .badge-ring{background:var(--g100);box-shadow:0 0 0 8px var(--g50)}
+  .warn .badge-ring{background:var(--amber-bg);box-shadow:0 0 0 8px #fffbeb}
+  .bad .badge-ring{background:var(--red-bg);box-shadow:0 0 0 8px #fef2f2}
+  .draw{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .7s .25s ease forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .pop{animation:pop .45s cubic-bezier(.2,1.4,.4,1) both}
+  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+  .eyebrow{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--g700)}
+  .warn .eyebrow{color:var(--amber)} .bad .eyebrow{color:var(--red)}
+  .title{font-size:1.45rem;font-weight:800;margin-top:4px;line-height:1.3}
+  .ok .title{color:var(--g800)} .warn .title{color:#92400e} .bad .title{color:#991b1b}
+  .sub{font-size:.85rem;color:var(--muted);margin-top:6px}
+  .month-pill{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:8px 16px;border-radius:999px;background:var(--g50);border:1px solid #bbf7d0;color:var(--g800);font-weight:700;font-size:.95rem}
+  .warn .month-pill{background:#fffbeb;border-color:#fde68a;color:#92400e}
+  .month-pill svg{width:16px;height:16px;fill:currentColor}
+  .amount{margin:18px 22px 0;padding:16px;border-radius:14px;background:linear-gradient(135deg,var(--g50),#fff);border:1px dashed #86efac;text-align:center}
+  .amount small{display:block;font-size:.72rem;color:var(--muted);font-weight:600;letter-spacing:.06em}
+  .amount b{display:block;font-size:2rem;font-weight:800;color:var(--g800);margin-top:2px;font-family:'Noto Serif Bengali',serif}
+  .amount .due{font-size:.8rem;color:var(--red);font-weight:600;margin-top:2px}
+  dl{margin:18px 22px 6px}
+  .row{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+  .row:last-child{border-bottom:none}
+  dt{color:var(--muted)} dd{font-weight:600;text-align:right;word-break:break-word}
+  .seal{margin:14px 22px 22px;padding:12px 14px;border-radius:12px;background:#f7faf8;border:1px solid var(--line);display:flex;gap:10px;align-items:flex-start;font-size:.74rem;color:var(--muted);line-height:1.55}
+  .seal svg{width:20px;height:20px;flex-shrink:0;fill:var(--g600);margin-top:1px}
+  .seal b{color:var(--ink)}
+  .actions{padding:0 22px 22px}
+  .call{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border-radius:12px;background:var(--g800);color:#fff;text-decoration:none;font-weight:600;font-size:.9rem}
+  .call svg{width:16px;height:16px;fill:#fff}
+  .foot{text-align:center;font-size:.72rem;color:#7b8a81;margin-top:16px;line-height:1.7}
+  .skeleton{padding:34px 22px}
+  .sk{height:14px;border-radius:7px;background:linear-gradient(90deg,#eef2ef 25%,#f8faf9 50%,#eef2ef 75%);background-size:200% 100%;animation:sh 1.2s infinite;margin:10px auto}
+  @keyframes sh{to{background-position:-200% 0}}
+  .hidden{display:none!important}
+  @media print{.hero{-webkit-print-color-adjust:exact;print-color-adjust:exact}.actions{display:none}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="brand">
+    <div class="logo" id="logoBox">
+      <img src="assets/logo.png" alt="" onerror="this.remove();document.getElementById('logoIcon').classList.remove('hidden')">
+      <svg id="logoIcon" class="hidden" viewBox="0 0 24 24"><path d="M4 4h16l1 5a3 3 0 0 1-2 2.8V20H5v-8.2A3 3 0 0 1 3 9l1-5zm3 9v5h4v-5H7zm6 0v5h4v-5h-4z"/></svg>
+    </div>
+    <h1 id="mktName">হাজী চাঁন মিয়া মার্কেট</h1>
+    <p id="mktAddr">ভাড়া রসিদ যাচাইকরণ সেবা</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="card" id="card">
+    <div class="skeleton" id="loading">
+      <div class="sk" style="width:84px;height:84px;border-radius:50%"></div>
+      <div class="sk" style="width:60%"></div>
+      <div class="sk" style="width:40%"></div>
+      <div class="sk" style="width:85%;margin-top:26px"></div>
+      <div class="sk" style="width:85%"></div>
+      <div class="sk" style="width:85%"></div>
+    </div>
+    <div id="result" class="hidden"></div>
+  </section>
+  <p class="foot">রসিদের QR কোড স্ক্যান করে এই পেজে আসা হয়েছে।<br>তথ্য সরাসরি মার্কেটের ডিজিটাল রেকর্ড থেকে দেখানো হচ্ছে।</p>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+(function(){
+  'use strict';
+  var firebaseConfig = {
+    apiKey: "AIzaSyC19qXVO3sMbB2OibYOK4tTdJpa-fI2M98",
+    authDomain: "haji-chan-market.firebaseapp.com",
+    projectId: "haji-chan-market",
+    storageBucket: "haji-chan-market.firebasestorage.app",
+    messagingSenderId: "596043711897",
+    appId: "1:596043711897:web:6de6044757ad4be2d07f08"
+  };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function fmtDate(v){
+    if(!v) return '-';
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if(m) return m[3]+'/'+m[2]+'/'+m[1];
+    var d = new Date(v); if(isNaN(d)) return String(v);
+    return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+  }
+  function fmtDateTime(d){
+    return fmtDate(d)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  function money(n){ return '৳ ' + (Number(n)||0).toLocaleString('en-IN'); }
+
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(text !== undefined) e.textContent = text;
+    return e;
+  }
+  function svgIcon(kind){
+    var s = document.createElementNS(NS,'svg'); s.setAttribute('viewBox','0 0 48 48'); s.setAttribute('fill','none');
+    var p = document.createElementNS(NS,'path');
+    p.setAttribute('stroke-width','5'); p.setAttribute('stroke-linecap','round'); p.setAttribute('stroke-linejoin','round');
+    if(kind==='ok'){ p.setAttribute('d','M12 25l8 8 16-18'); p.setAttribute('stroke','#16a34a'); p.setAttribute('class','draw'); }
+    else if(kind==='warn'){ p.setAttribute('d','M24 12v15M24 35v.5'); p.setAttribute('stroke','#d97706'); p.setAttribute('class','draw'); }
+    else { p.setAttribute('d','M14 14l20 20M34 14L14 34'); p.setAttribute('stroke','#dc2626'); p.setAttribute('class','draw'); }
+    s.appendChild(p); return s;
+  }
+
+  function show(node){
+    $('loading').classList.add('hidden');
+    var r = $('result'); r.innerHTML=''; r.appendChild(node); r.classList.remove('hidden');
+  }
+
+  function renderInvalid(msg){
+    var box = el('div');
+    var st = el('div','state bad pop');
+    var ring = el('div','badge-ring'); ring.appendChild(svgIcon('bad'));
+    st.appendChild(ring);
+    st.appendChild(el('div','eyebrow','Verification Failed'));
+    st.appendChild(el('div','title','রসিদ যাচাই করা যায়নি'));
+    st.appendChild(el('div','sub', msg));
+    box.appendChild(st);
+    var seal = el('div','seal');
+    seal.appendChild(el('div','', 'এই রসিদটি মার্কেটের রেকর্ডে পাওয়া যায়নি। রসিদটি আসল কিনা নিশ্চিত হতে সরাসরি মার্কেট অফিসে যোগাযোগ করুন।'));
+    box.appendChild(seal);
+    show(box);
+  }
+
+  function renderReceipt(r){
+    if(r.mktName) $('mktName').textContent = r.mktName;
+    if(r.mktAddress) $('mktAddr').textContent = r.mktAddress;
+
+    var status = r.status === 'paid' ? 'ok' : (r.status === 'partial' ? 'warn' : 'bad');
+    var box = el('div');
+
+    var st = el('div','state '+status);
+    var ring = el('div','badge-ring pop'); ring.appendChild(svgIcon(status==='ok'?'ok':status==='warn'?'warn':'bad'));
+    st.appendChild(ring);
+    if(status==='ok'){
+      st.appendChild(el('div','eyebrow','Payment Successful'));
+      st.appendChild(el('div','title','পেমেন্ট সফল হয়েছে'));
+      st.appendChild(el('div','sub','এই ভাড়া রসিদটি যাচাইকৃত ও সঠিক।'));
+    } else if(status==='warn'){
+      st.appendChild(el('div','eyebrow','Partial Payment'));
+      st.appendChild(el('div','title','আংশিক পরিশোধ'));
+      st.appendChild(el('div','sub','রসিদটি সঠিক। তবে এই মাসের ভাড়া এখনো সম্পূর্ণ পরিশোধ হয়নি।'));
+    } else {
+      st.appendChild(el('div','eyebrow','Payment Pending'));
+      st.appendChild(el('div','title','পেমেন্ট সম্পন্ন হয়নি'));
+      st.appendChild(el('div','sub','এই রসিদে কোনো পরিশোধ নেই।'));
+    }
+    var pill = el('div','month-pill');
+    pill.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 2v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7zm-2 8h14v9H5v-9z"/></svg>';
+    pill.appendChild(document.createTextNode('ভাড়ার মাস: '+(r.month||'-')+' '+(r.year||'')));
+    st.appendChild(pill);
+    box.appendChild(st);
+
+    var amt = el('div','amount');
+    amt.appendChild(el('small','পরিশোধিত পরিমাণ / AMOUNT PAID'));
+    amt.appendChild(el('b','',money(r.paid)));
+    if(Number(r.due) > 0) amt.appendChild(el('div','due','বাকি আছে: '+money(r.due)));
+    box.appendChild(amt);
+
+    var dl = el('dl');
+    [
+      ['রসিদ নং', '#'+(r.slipNo||'-')],
+      ['ভাড়াটিয়া', r.tenantName||'-'],
+      ['দোকান নং', r.shop||'-'],
+      ['মাসিক ভাড়া', money(r.rent)],
+      ['পরিশোধের তারিখ', fmtDate(r.date)]
+    ].forEach(function(x){
+      var row = el('div','row'); row.appendChild(el('dt','',x[0])); row.appendChild(el('dd','',x[1])); dl.appendChild(row);
+    });
+    box.appendChild(dl);
+
+    var seal = el('div','seal');
+    seal.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-4zm-1.2 15.2-3.5-3.5 1.4-1.4 2.1 2.1 5-5 1.4 1.4-6.4 6.4z"/></svg>';
+    var t = el('div');
+    var b = el('b','', 'অফিসিয়াল ডিজিটাল রেকর্ড থেকে যাচাইকৃত');
+    t.appendChild(b);
+    t.appendChild(document.createElement('br'));
+    t.appendChild(document.createTextNode('যাচাইয়ের সময়: '+fmtDateTime(new Date())+'  •  Ref: '+(r.token||'').slice(0,8).toUpperCase()));
+    seal.appendChild(t);
+    box.appendChild(seal);
+
+    if(r.mktPhone){
+      var act = el('div','actions');
+      var a = el('a','call');
+      a.href = 'tel:'+String(r.mktPhone).replace(/[^0-9+]/g,'');
+      a.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1l-2.2 2.2z"/></svg>';
+      a.appendChild(document.createTextNode('মার্কেট অফিসে কল করুন'));
+      act.appendChild(a);
+      box.appendChild(act);
+    }
+    show(box);
+  }
+
+  // ---------------- load ----------------
+  var token = (new URLSearchParams(location.search).get('r') || '').trim();
+  if(!/^[A-Za-z0-9_-]{10,64}$/.test(token)){ renderInvalid('QR কোডের লিংকটি সঠিক নয়।'); return; }
+
+  try{
+    if(typeof firebase === 'undefined') throw new Error('offline');
+    if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+    var timer = setTimeout(function(){ renderInvalid('সংযোগ পেতে দেরি হচ্ছে। ইন্টারনেট চেক করে আবার চেষ্টা করুন।'); }, 15000);
+    db.collection('receipts').doc(token).get().then(function(snap){
+      clearTimeout(timer);
+      if(!snap.exists){ renderInvalid('এই QR কোডের সাথে মিল আছে এমন কোনো রসিদ পাওয়া যায়নি।'); return; }
+      var d = snap.data(); d.token = token;
+      renderReceipt(d);
+    }).catch(function(e){
+      clearTimeout(timer);
+      console.warn(e);
+      renderInvalid(e && e.code === 'permission-denied' ? 'যাচাই সেবা এখনো চালু করা হয়নি (অনুমতি নেই)।' : 'ডেটা লোড করা যায়নি। পরে আবার চেষ্টা করুন।');
+    });
+  }catch(e){
+    renderInvalid('ইন্টারনেট সংযোগ পাওয়া যায়নি।');
+  }
+})();
+</script>
+</body>
+</html>

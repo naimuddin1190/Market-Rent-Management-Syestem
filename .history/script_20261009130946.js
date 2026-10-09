@@ -63,7 +63,7 @@ function initDatePickers(){
   });
 }
 
-let db_fire = null, storage_fire = null, auth_fire = null;
+let db_fire = null, storage_fire = null;
 let FIREBASE_READY = false;
 let _realtimeUnsubs = [];
 
@@ -72,8 +72,7 @@ function initFirebase() {
     if (typeof firebase === 'undefined') return;
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     db_fire      = firebase.firestore();
-    try { storage_fire = firebase.storage(); } catch(e) { storage_fire = null; }
-    auth_fire    = firebase.auth();
+    storage_fire = firebase.storage();
     FIREBASE_READY = true;
     console.log('✅ Firebase v2 connected');
   } catch(e) { console.warn('⚠️ Firebase init failed:', e); }
@@ -296,76 +295,19 @@ function setLanguage(lang, save=true) {
 // ============================================================
 // AUTH
 // ============================================================
-let _appStarted = false;
-
-function authErrorBn(e) {
-  const c = (e && e.code) || '';
-  if (c === 'auth/invalid-credential' || c === 'auth/wrong-password' || c === 'auth/user-not-found' || c === 'auth/invalid-email')
-    return 'ইমেইল বা পাসওয়ার্ড ভুল';
-  if (c === 'auth/too-many-requests') return 'অনেকবার ভুল হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন';
-  if (c === 'auth/network-request-failed') return 'ইন্টারনেট সংযোগ নেই';
-  if (c === 'auth/operation-not-allowed') return 'Firebase এ Email/Password লগইন চালু করা নেই';
-  return 'লগইন ব্যর্থ: ' + (c || (e && e.message) || 'unknown');
+function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  if (u === 'admin' && p === 'admin123') {
+    currentUser = u;
+    localStorage.setItem('currentUser', u);
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    init();
+  } else { showToast('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড', 'error'); }
 }
-
-async function doLogin() {
-  const email = (document.getElementById('loginUser').value || '').trim();
-  const pass  = document.getElementById('loginPass').value || '';
-  if (!email || !pass) { showToast('ইমেইল ও পাসওয়ার্ড দিন', 'error'); return; }
-  if (!auth_fire) { initFirebase(); }
-  if (!auth_fire) { showToast('Firebase লোড হয়নি। ইন্টারনেট চেক করে পেজ রিফ্রেশ করুন', 'error'); return; }
-  const btn = document.getElementById('loginBtn');
-  if (btn) btn.disabled = true;
-  try {
-    await auth_fire.signInWithEmailAndPassword(email, pass);   // বাকি কাজ onAuthStateChanged এ হয়
-  } catch (e) {
-    showToast(authErrorBn(e), 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function resetPassword() {
-  const email = (document.getElementById('loginUser').value || '').trim();
-  if (!email) { showToast('আগে ইমেইল লিখুন', 'warning'); return; }
-  if (!auth_fire) initFirebase();
-  if (!auth_fire) { showToast('Firebase লোড হয়নি', 'error'); return; }
-  try {
-    await auth_fire.sendPasswordResetEmail(email);
-    showToast('পাসওয়ার্ড রিসেট লিংক ইমেইলে পাঠানো হয়েছে ✅');
-  } catch (e) { showToast(authErrorBn(e), 'error'); }
-}
-
-async function doLogout() {
-  if (!confirm('লগআউট করতে চান?')) return;
-  try { if (auth_fire) await auth_fire.signOut(); } catch (e) { console.warn(e); }
-  localStorage.removeItem('currentUser');
-  location.reload();
-}
-
-function showLoginScreen() {
-  _appStarted = false;
-  document.getElementById('loginPage').style.display = 'flex';
-  document.getElementById('mainApp').style.display = 'none';
-}
-
-function startAuthWatcher() {
-  initFirebase();
-  if (!auth_fire) { showLoginScreen(); return; }
-  auth_fire.onAuthStateChanged(user => {
-    if (user) {
-      currentUser = user.email || 'admin';
-      localStorage.setItem('currentUser', currentUser);
-      document.getElementById('loginPage').style.display = 'none';
-      document.getElementById('mainApp').style.display = 'block';
-      if (!_appStarted) { _appStarted = true; init(); }
-    } else {
-      // logged out: local cache e thaka private data muche din
-      ['tenants','shops','payments','activities','archivedTenants','leaveRequests','agreements'].forEach(k => localStorage.removeItem(k));
-      Object.keys(localStorage).filter(k => k.startsWith('slips_') || k.startsWith('agHistory_') || k.startsWith('agfile_')).forEach(k => localStorage.removeItem(k));
-      showLoginScreen();
-    }
-  });
+function doLogout() {
+  if (confirm('লগআউট করতে চান?')) { localStorage.removeItem('currentUser'); location.reload(); }
 }
 
 // ============================================================
@@ -423,7 +365,7 @@ async function applySettings() {
 }
 
 function loadSettingsForm() {
-  ['mktName','mktAddress','mktPhone','mktOwner','mktHolding','mktVerifyUrl'].forEach(id => {
+  ['mktName','mktAddress','mktPhone','mktOwner','mktHolding'].forEach(id => {
     const el = document.getElementById(id);
     if (el && settings[id]) el.value = settings[id];
   });
@@ -435,7 +377,6 @@ async function saveSettings() {
   settings.mktPhone   = document.getElementById('mktPhone').value;
   settings.mktOwner   = document.getElementById('mktOwner').value;
   settings.mktHolding = document.getElementById('mktHolding').value;
-  settings.mktVerifyUrl = (document.getElementById('mktVerifyUrl')||{}).value||'';
   await FDB.saveSettings(settings);
   addActivity('সেটিংস আপডেট করা হয়েছে', 'cog', '#6b7280');
   const sn = document.getElementById('sidebarMarketName');
@@ -1114,8 +1055,6 @@ function renderPayments() {
 
 async function deletePayment(id) {
   if (!confirm('এই রসিদ মুছে ফেলতে চান?')) return;
-  const _p = payments.find(x=>x.id===id);
-  if (_p && _p.verifyToken && FIREBASE_READY) { try { await db_fire.collection('receipts').doc(_p.verifyToken).delete(); } catch(e) { console.warn(e); } }
   await FDB.delete('payments', id);
   payments = await FDB.getAll('payments');
   renderPayments(); showToast('রসিদ মুছে ফেলা হয়েছে','error');
@@ -1124,53 +1063,24 @@ async function deletePayment(id) {
 // ============================================================
 // SLIP GENERATION — Enhanced with QR + Bengali Font + Both Copies
 // ============================================================
-// ── Receipt verification (QR -> verify.html) ─────────────────
-function getVerifyBase() {
-  const custom = (settings.mktVerifyUrl || '').trim();
-  if (custom) return custom;
-  try { return new URL('verify.html', location.href).href.split('?')[0]; } catch(e) { return 'verify.html'; }
-}
-function makeVerifyToken() {
-  const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
-  const a = new Uint8Array(18); crypto.getRandomValues(a);
-  return Array.from(a, n => abc[n % abc.length]).join('');
-}
-function verifyUrlFor(token) { return getVerifyBase() + '?r=' + encodeURIComponent(token); }
-
-// receipts/{token} : public-safe copy of the receipt (verify.html reads this)
-async function ensureReceipt(p) {
-  if (!p.verifyToken) {
-    p.verifyToken = makeVerifyToken();
-    try { await FDB.save('payments', p.id, { verifyToken: p.verifyToken }); } catch(e) {}
-  }
-  if (FIREBASE_READY && !p._receiptSynced) {
-    const rec = {
-      token: p.verifyToken, paymentId: p.id,
-      mktName: settings.mktName || '', mktAddress: settings.mktAddress || '', mktPhone: settings.mktPhone || '',
-      tenantName: p.tenantName || '', shop: p.shop || '',
-      month: p.month || '', year: p.year || '', date: p.date || '',
-      rent: p.rent || 0, paid: p.paid || 0, due: p.due || 0, status: p.status || 'due',
-      slipNo: p.tenantSlipNo || String(p.slipNo || ''), createdAt: new Date().toISOString()
-    };
-    try {
-      await Promise.race([
-        db_fire.collection('receipts').doc(p.verifyToken).set(rec),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
-      ]);
-      p._receiptSynced = true;
-    } catch(e) { console.warn('Receipt publish failed:', e); }
-  }
-  return p.verifyToken;
-}
-
-function generateQRDataUrl(text) {
+function generateQRDataUrl(p) {
   return new Promise(resolve => {
     try {
       const container = document.createElement('div');
       container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
       document.body.appendChild(container);
-      new QRCode(container, {
-        text, width: 120, height: 120,
+      const qrData = JSON.stringify({
+        slip: p.tenantSlipNo||p.slipNo,
+        tenant: p.tenantName,
+        tenantId: p.tenantId,
+        shop: p.shop,
+        month: p.month+' '+(p.year||''),
+        date: fmtDate(p.date),
+        paid: p.paid,
+        status: p.status
+      });
+      const qr = new QRCode(container, {
+        text: qrData, width: 80, height: 80,
         colorDark: '#14532d', colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.M
       });
@@ -1185,25 +1095,15 @@ function generateQRDataUrl(text) {
   });
 }
 
-async function buildQrHtml(p) {
-  if (typeof QRCode === 'undefined') return '';
-  const token = await ensureReceipt(p);
-  const src = await generateQRDataUrl(verifyUrlFor(token));
-  if (!src) return '';
-  return '<div class="qr-container" style="display:flex;flex-direction:column;align-items:center;">'+
-    '<img src="'+src+'" width="84" height="84" alt="QR" style="display:block;border:2px solid #86efac;border-radius:6px;padding:3px;background:#fff;">'+
-    '<div style="font-size:0.7rem;color:#14532d;font-weight:600;margin-top:4px;line-height:1.3;white-space:nowrap;">QR স্ক্যান করে যাচাই করুন</div>'+
-    '</div>';
-}
-
 async function viewSlip(paymentId) {
   const p = payments.find(x=>x.id===paymentId);
   if (!p) return;
   currentSlipPayment = p;
-  showSyncOverlay(true, 'রসিদ প্রস্তুত হচ্ছে...');
-  let qrHtml = '';
-  try { qrHtml = await buildQrHtml(p); } catch(e) { console.warn(e); }
-  showSyncOverlay(false);
+  // Generate QR
+  const qrSrc = typeof QRCode !== 'undefined' ? await generateQRDataUrl(p) : '';
+  const qrHtml = qrSrc
+    ? '<div class="qr-container"><img src="'+qrSrc+'" width="80" height="80" alt="QR"><div style="font-size:0.68rem;color:#6b7280;margin-top:4px;text-align:center;">স্ক্যান করুন</div></div>'
+    : '';
 
   const slipHTML =
     '<div class="slip-container" id="printSlipArea" style="max-width:720px;margin:0 auto;">'+
@@ -1255,11 +1155,11 @@ function generateSlipCopy(p, s, copyType, qrHtml) {
     (p.collector?'<div><span>সংগ্রহকারী : </span><span class="slip-field">'+p.collector+'</span></div>':'')+
     (p.notes?'<div style="font-size:0.78rem;color:#4b5563;">মন্তব্য : '+p.notes+'</div>':'')+
     '</div>'+
-    // Signatures + QR (QR centre, between the two signatures)
-    '<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
-    '<div style="text-align:left;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>'+
-    '<div style="text-align:center;">'+(qrHtml||'')+'</div>'+
-    '<div style="text-align:right;font-size:0.78rem;color:#14532d;display:flex;flex-direction:column;align-items:flex-end;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div></div>'+
+    // Signatures + QR
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>'+
+    (qrHtml||'')+
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div></div>'+
     '<div class="slip-decorative" style="margin-top:10px;"></div>'+
     '</div>';
 }
@@ -1361,22 +1261,18 @@ function sendWhatsApp() {
 }
 
 // ── Monthly Bundle Print ─────────────────────────────────────
-async function printAllMonthReceipts() {
+function printAllMonthReceipts() {
   const monthF = document.getElementById('rcMonthFilter')?.value||'';
   const list   = payments.filter(p=>!monthF||(p.month+' '+p.year)===monthF);
   if (!list.length) { showToast('প্রিন্ট করার মতো কোনো রসিদ নেই','warning'); return; }
   showToast(list.length+'টি রসিদ প্রিন্ট হচ্ছে...');
   let allHtml = '';
-  showSyncOverlay(true, 'QR সহ রসিদ প্রস্তুত হচ্ছে...');
-  for (const p of list) {
-    let qr = '';
-    try { qr = await buildQrHtml(p); } catch(e) { console.warn(e); }
+  list.forEach(p => {
     allHtml += '<div style="page-break-after:always;">'+
-      generateSlipCopy(p,settings,'owner',qr)+
+      generateSlipCopy(p,settings,'owner','')+
       '<div style="text-align:center;padding:4px;font-size:.7rem;color:#aaa;">✂ কাটুন</div>'+
-      generateSlipCopy(p,settings,'tenant',qr)+'</div>';
-  }
-  showSyncOverlay(false);
+      generateSlipCopy(p,settings,'tenant','')+'</div>';
+  });
   const win=window.open('','_blank','width=920,height=700');
   win.document.write('<!DOCTYPE html><html><head><title>মাসিক রসিদ</title><style>'+SLIP_PRINT_CSS+'</style></head><body>'+
     allHtml+
@@ -2169,7 +2065,16 @@ function updateSyncBadge() {
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   initDatePickers();
-  startAuthWatcher();
+  const user=localStorage.getItem('currentUser');
+  if (user) {
+    currentUser=user;
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    init();
+  } else {
+    document.getElementById('loginPage').style.display='flex';
+    document.getElementById('mainApp').style.display='none';
+  }
 });
 document.addEventListener('keydown', e=>{
   if (e.key==='Enter'&&document.getElementById('loginPage').style.display!=='none') doLogin();

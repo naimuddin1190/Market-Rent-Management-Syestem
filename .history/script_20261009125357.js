@@ -15,55 +15,7 @@ const firebaseConfig = {
 // FIREBASE STATE
 // ============================================================
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){ console.warn('localStorage full:',k); } }
-
-// ============================================================
-// DATE HELPERS — shob jaygay DD/MM/YYYY
-// ============================================================
-const DATE_BN_DIGITS = false;   // true korle 09/10/2026 ->  ০৯/১০/২০২৬
-function _bnDigits(str){ return String(str).replace(/[0-9]/g, d => '০১২৩৪৫৬৭৮৯'[d]); }
-function isoLocal(d){            // local-time YYYY-MM-DD (UTC bhul din hobe na)
-  d = d instanceof Date ? d : new Date(d);
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-function fmtDate(v){             // 'YYYY-MM-DD' / ISO datetime / Date  ->  DD/MM/YYYY
-  if (!v) return '';
-  let y,m,d;
-  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) { y=v.slice(0,4); m=v.slice(5,7); d=v.slice(8,10); }
-  else { const dt = v instanceof Date ? v : new Date(v); if (isNaN(dt)) return String(v);
-         y=dt.getFullYear(); m=String(dt.getMonth()+1).padStart(2,'0'); d=String(dt.getDate()).padStart(2,'0'); }
-  const out = d+'/'+m+'/'+y;
-  return DATE_BN_DIGITS ? _bnDigits(out) : out;
-}
-function fmtDateTime(v){
-  if (!v) return '';
-  const dt = new Date(v); if (isNaN(dt)) return String(v);
-  const t = String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0');
-  return fmtDate(dt)+' '+(DATE_BN_DIGITS?_bnDigits(t):t);
-}
-
-// Date input gulo: screen e DD/MM/YYYY, bhitore YYYY-MM-DD (code er onno part kaj kore)
-function initDatePickers(){
-  if (typeof flatpickr === 'undefined') return;
-  const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-  ['tStartDate','tEndDate','rDate','leaveReqDate','leaveExitDate','agStartDate','agEndDate'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el || el._flatpickr) return;
-    const fp = flatpickr(el, { dateFormat:'Y-m-d', altInput:true, altFormat:'d/m/Y', allowInput:false, disableMobile:true });
-    let busy = false;
-    Object.defineProperty(el, 'value', {
-      configurable: true,
-      get(){ return desc.get.call(el); },
-      set(v){
-        desc.set.call(el, v);
-        if (busy) return;
-        busy = true;
-        try { fp.setDate(v || null, false, 'Y-m-d'); } finally { busy = false; }
-      }
-    });
-  });
-}
-
-let db_fire = null, storage_fire = null, auth_fire = null;
+let db_fire = null, storage_fire = null;
 let FIREBASE_READY = false;
 let _realtimeUnsubs = [];
 
@@ -72,8 +24,7 @@ function initFirebase() {
     if (typeof firebase === 'undefined') return;
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     db_fire      = firebase.firestore();
-    try { storage_fire = firebase.storage(); } catch(e) { storage_fire = null; }
-    auth_fire    = firebase.auth();
+    storage_fire = firebase.storage();
     FIREBASE_READY = true;
     console.log('✅ Firebase v2 connected');
   } catch(e) { console.warn('⚠️ Firebase init failed:', e); }
@@ -296,76 +247,19 @@ function setLanguage(lang, save=true) {
 // ============================================================
 // AUTH
 // ============================================================
-let _appStarted = false;
-
-function authErrorBn(e) {
-  const c = (e && e.code) || '';
-  if (c === 'auth/invalid-credential' || c === 'auth/wrong-password' || c === 'auth/user-not-found' || c === 'auth/invalid-email')
-    return 'ইমেইল বা পাসওয়ার্ড ভুল';
-  if (c === 'auth/too-many-requests') return 'অনেকবার ভুল হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন';
-  if (c === 'auth/network-request-failed') return 'ইন্টারনেট সংযোগ নেই';
-  if (c === 'auth/operation-not-allowed') return 'Firebase এ Email/Password লগইন চালু করা নেই';
-  return 'লগইন ব্যর্থ: ' + (c || (e && e.message) || 'unknown');
+function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  if (u === 'admin' && p === 'admin123') {
+    currentUser = u;
+    localStorage.setItem('currentUser', u);
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    init();
+  } else { showToast('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড', 'error'); }
 }
-
-async function doLogin() {
-  const email = (document.getElementById('loginUser').value || '').trim();
-  const pass  = document.getElementById('loginPass').value || '';
-  if (!email || !pass) { showToast('ইমেইল ও পাসওয়ার্ড দিন', 'error'); return; }
-  if (!auth_fire) { initFirebase(); }
-  if (!auth_fire) { showToast('Firebase লোড হয়নি। ইন্টারনেট চেক করে পেজ রিফ্রেশ করুন', 'error'); return; }
-  const btn = document.getElementById('loginBtn');
-  if (btn) btn.disabled = true;
-  try {
-    await auth_fire.signInWithEmailAndPassword(email, pass);   // বাকি কাজ onAuthStateChanged এ হয়
-  } catch (e) {
-    showToast(authErrorBn(e), 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function resetPassword() {
-  const email = (document.getElementById('loginUser').value || '').trim();
-  if (!email) { showToast('আগে ইমেইল লিখুন', 'warning'); return; }
-  if (!auth_fire) initFirebase();
-  if (!auth_fire) { showToast('Firebase লোড হয়নি', 'error'); return; }
-  try {
-    await auth_fire.sendPasswordResetEmail(email);
-    showToast('পাসওয়ার্ড রিসেট লিংক ইমেইলে পাঠানো হয়েছে ✅');
-  } catch (e) { showToast(authErrorBn(e), 'error'); }
-}
-
-async function doLogout() {
-  if (!confirm('লগআউট করতে চান?')) return;
-  try { if (auth_fire) await auth_fire.signOut(); } catch (e) { console.warn(e); }
-  localStorage.removeItem('currentUser');
-  location.reload();
-}
-
-function showLoginScreen() {
-  _appStarted = false;
-  document.getElementById('loginPage').style.display = 'flex';
-  document.getElementById('mainApp').style.display = 'none';
-}
-
-function startAuthWatcher() {
-  initFirebase();
-  if (!auth_fire) { showLoginScreen(); return; }
-  auth_fire.onAuthStateChanged(user => {
-    if (user) {
-      currentUser = user.email || 'admin';
-      localStorage.setItem('currentUser', currentUser);
-      document.getElementById('loginPage').style.display = 'none';
-      document.getElementById('mainApp').style.display = 'block';
-      if (!_appStarted) { _appStarted = true; init(); }
-    } else {
-      // logged out: local cache e thaka private data muche din
-      ['tenants','shops','payments','activities','archivedTenants','leaveRequests','agreements'].forEach(k => localStorage.removeItem(k));
-      Object.keys(localStorage).filter(k => k.startsWith('slips_') || k.startsWith('agHistory_') || k.startsWith('agfile_')).forEach(k => localStorage.removeItem(k));
-      showLoginScreen();
-    }
-  });
+function doLogout() {
+  if (confirm('লগআউট করতে চান?')) { localStorage.removeItem('currentUser'); location.reload(); }
 }
 
 // ============================================================
@@ -405,9 +299,9 @@ async function init() {
 function setDateDisplay() {
   const now = new Date();
   const el = document.getElementById('dashDate');
-  if (el) el.textContent = now.toLocaleDateString('bn-BD', {weekday:'long'})+', '+fmtDate(now);
+  if (el) el.textContent = now.toLocaleDateString('bn-BD', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const rDate = document.getElementById('rDate');
-  if (rDate) rDate.value = isoLocal(now);
+  if (rDate) rDate.value = now.toISOString().split('T')[0];
   const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
   const rMonth = document.getElementById('rMonth');
   if (rMonth) rMonth.value = months[now.getMonth()];
@@ -423,7 +317,7 @@ async function applySettings() {
 }
 
 function loadSettingsForm() {
-  ['mktName','mktAddress','mktPhone','mktOwner','mktHolding','mktVerifyUrl'].forEach(id => {
+  ['mktName','mktAddress','mktPhone','mktOwner','mktHolding'].forEach(id => {
     const el = document.getElementById(id);
     if (el && settings[id]) el.value = settings[id];
   });
@@ -435,7 +329,6 @@ async function saveSettings() {
   settings.mktPhone   = document.getElementById('mktPhone').value;
   settings.mktOwner   = document.getElementById('mktOwner').value;
   settings.mktHolding = document.getElementById('mktHolding').value;
-  settings.mktVerifyUrl = (document.getElementById('mktVerifyUrl')||{}).value||'';
   await FDB.saveSettings(settings);
   addActivity('সেটিংস আপডেট করা হয়েছে', 'cog', '#6b7280');
   const sn = document.getElementById('sidebarMarketName');
@@ -578,9 +471,9 @@ function openTenantModal(id) {
   document.getElementById('advanceCalc').style.display = 'none';
   populateShopSelect();
   const now = new Date();
-  document.getElementById('tStartDate').value = isoLocal(now);
+  document.getElementById('tStartDate').value = now.toISOString().split('T')[0];
   const end = new Date(now); end.setFullYear(end.getFullYear()+1);
-  document.getElementById('tEndDate').value = isoLocal(end);
+  document.getElementById('tEndDate').value = end.toISOString().split('T')[0];
 
   if (id) {
     const tn = tenants.find(x=>x.id===id);
@@ -779,7 +672,7 @@ function viewTenant(id) {
     '<div><b>অগ্রিম:</b> ৳'+(tn.advance||0).toLocaleString()+'</div>'+
     '<div><b>মাসিক কর্তন:</b> ৳'+deduction.toLocaleString()+'</div>'+
     '<div><b>অবশিষ্ট অগ্রিম:</b> <span style="color:var(--accent);font-weight:700;">৳'+remaining.toLocaleString()+'</span></div>'+
-    '<div><b>চুক্তি শুরু:</b> '+(fmtDate(tn.startDate)||'-')+'</div><div><b>চুক্তি শেষ:</b> '+(fmtDate(tn.endDate)||'-')+'</div>'+
+    '<div><b>চুক্তি শুরু:</b> '+(tn.startDate||'-')+'</div><div><b>চুক্তি শেষ:</b> '+(tn.endDate||'-')+'</div>'+
     '<div><b>মোট পরিশোধিত:</b> ৳'+totalPaid.toLocaleString()+'</div>'+
     '<div><b>মোট বাকি:</b> <span style="color:#dc2626;">৳'+totalDue.toLocaleString()+'</span></div>'+
     '</div>'+(tn.address?'<p style="margin-top:8px;font-size:0.82rem;"><b>ঠিকানা:</b> '+tn.address+'</p>':'')+
@@ -921,12 +814,12 @@ function printTenant(id) {
       row('দোকান নং', tn.shop)+row('ফ্লোর', tn.floor)+
       row('মাসিক ভাড়া', '৳'+num(tn.rent))+row('অগ্রিম', '৳'+num(tn.advance))+
       row('মাসিক কর্তন', '৳'+num(deduction))+row('অবশিষ্ট অগ্রিম', '৳'+num(remaining))+
-      row('চুক্তি শুরু', fmtDate(tn.startDate))+row('চুক্তি শেষ', fmtDate(tn.endDate))+
+      row('চুক্তি শুরু', tn.startDate)+row('চুক্তি শেষ', tn.endDate)+
       row('ঠিকানা', tn.address)+row('মন্তব্য', tn.notes)+
     '</table></div>'+
     '<div class="nids">'+img(tn.nidFrontUrl,'এনআইডি — সামনের দিক')+img(tn.nidBackUrl,'এনআইডি — পিছনের দিক')+'</div>'+
     '<div class="sign"><div>ভাড়াটিয়ার স্বাক্ষর</div><div>'+sigImg+'জমিদারের স্বাক্ষর</div></div>'+
-    '<div class="sub" style="margin-top:14px;">প্রিন্টের তারিখ: '+fmtDate(new Date())+'</div>'+
+    '<div class="sub" style="margin-top:14px;">প্রিন্টের তারিখ: '+new Date().toLocaleDateString('bn-BD')+'</div>'+
     '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},700);}</scr'+'ipt></body></html>';
 
   const w = window.open('', '_blank', 'width=900,height=700');
@@ -1003,7 +896,7 @@ function renderShops() {
 function openRentModal() {
   ['rShop','rMonthlyRent','rPaid','rDue','rCollector','rNotes'].forEach(f=>{ const el=document.getElementById(f); if(el) el.value=''; });
   populateRentTenantSelect();
-  document.getElementById('rDate').value = isoLocal(new Date());
+  document.getElementById('rDate').value = new Date().toISOString().split('T')[0];
   openModal('rentModal');
 }
 
@@ -1114,8 +1007,6 @@ function renderPayments() {
 
 async function deletePayment(id) {
   if (!confirm('এই রসিদ মুছে ফেলতে চান?')) return;
-  const _p = payments.find(x=>x.id===id);
-  if (_p && _p.verifyToken && FIREBASE_READY) { try { await db_fire.collection('receipts').doc(_p.verifyToken).delete(); } catch(e) { console.warn(e); } }
   await FDB.delete('payments', id);
   payments = await FDB.getAll('payments');
   renderPayments(); showToast('রসিদ মুছে ফেলা হয়েছে','error');
@@ -1124,53 +1015,24 @@ async function deletePayment(id) {
 // ============================================================
 // SLIP GENERATION — Enhanced with QR + Bengali Font + Both Copies
 // ============================================================
-// ── Receipt verification (QR -> verify.html) ─────────────────
-function getVerifyBase() {
-  const custom = (settings.mktVerifyUrl || '').trim();
-  if (custom) return custom;
-  try { return new URL('verify.html', location.href).href.split('?')[0]; } catch(e) { return 'verify.html'; }
-}
-function makeVerifyToken() {
-  const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
-  const a = new Uint8Array(18); crypto.getRandomValues(a);
-  return Array.from(a, n => abc[n % abc.length]).join('');
-}
-function verifyUrlFor(token) { return getVerifyBase() + '?r=' + encodeURIComponent(token); }
-
-// receipts/{token} : public-safe copy of the receipt (verify.html reads this)
-async function ensureReceipt(p) {
-  if (!p.verifyToken) {
-    p.verifyToken = makeVerifyToken();
-    try { await FDB.save('payments', p.id, { verifyToken: p.verifyToken }); } catch(e) {}
-  }
-  if (FIREBASE_READY && !p._receiptSynced) {
-    const rec = {
-      token: p.verifyToken, paymentId: p.id,
-      mktName: settings.mktName || '', mktAddress: settings.mktAddress || '', mktPhone: settings.mktPhone || '',
-      tenantName: p.tenantName || '', shop: p.shop || '',
-      month: p.month || '', year: p.year || '', date: p.date || '',
-      rent: p.rent || 0, paid: p.paid || 0, due: p.due || 0, status: p.status || 'due',
-      slipNo: p.tenantSlipNo || String(p.slipNo || ''), createdAt: new Date().toISOString()
-    };
-    try {
-      await Promise.race([
-        db_fire.collection('receipts').doc(p.verifyToken).set(rec),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
-      ]);
-      p._receiptSynced = true;
-    } catch(e) { console.warn('Receipt publish failed:', e); }
-  }
-  return p.verifyToken;
-}
-
-function generateQRDataUrl(text) {
+function generateQRDataUrl(p) {
   return new Promise(resolve => {
     try {
       const container = document.createElement('div');
       container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
       document.body.appendChild(container);
-      new QRCode(container, {
-        text, width: 120, height: 120,
+      const qrData = JSON.stringify({
+        slip: p.tenantSlipNo||p.slipNo,
+        tenant: p.tenantName,
+        tenantId: p.tenantId,
+        shop: p.shop,
+        month: p.month+' '+(p.year||''),
+        date: p.date,
+        paid: p.paid,
+        status: p.status
+      });
+      const qr = new QRCode(container, {
+        text: qrData, width: 80, height: 80,
         colorDark: '#14532d', colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.M
       });
@@ -1185,25 +1047,15 @@ function generateQRDataUrl(text) {
   });
 }
 
-async function buildQrHtml(p) {
-  if (typeof QRCode === 'undefined') return '';
-  const token = await ensureReceipt(p);
-  const src = await generateQRDataUrl(verifyUrlFor(token));
-  if (!src) return '';
-  return '<div class="qr-container" style="display:flex;flex-direction:column;align-items:center;">'+
-    '<img src="'+src+'" width="84" height="84" alt="QR" style="display:block;border:2px solid #86efac;border-radius:6px;padding:3px;background:#fff;">'+
-    '<div style="font-size:0.7rem;color:#14532d;font-weight:600;margin-top:4px;line-height:1.3;white-space:nowrap;">QR স্ক্যান করে যাচাই করুন</div>'+
-    '</div>';
-}
-
 async function viewSlip(paymentId) {
   const p = payments.find(x=>x.id===paymentId);
   if (!p) return;
   currentSlipPayment = p;
-  showSyncOverlay(true, 'রসিদ প্রস্তুত হচ্ছে...');
-  let qrHtml = '';
-  try { qrHtml = await buildQrHtml(p); } catch(e) { console.warn(e); }
-  showSyncOverlay(false);
+  // Generate QR
+  const qrSrc = typeof QRCode !== 'undefined' ? await generateQRDataUrl(p) : '';
+  const qrHtml = qrSrc
+    ? '<div class="qr-container"><img src="'+qrSrc+'" width="80" height="80" alt="QR"><div style="font-size:0.68rem;color:#6b7280;margin-top:4px;text-align:center;">স্ক্যান করুন</div></div>'
+    : '';
 
   const slipHTML =
     '<div class="slip-container" id="printSlipArea" style="max-width:720px;margin:0 auto;">'+
@@ -1255,17 +1107,19 @@ function generateSlipCopy(p, s, copyType, qrHtml) {
     (p.collector?'<div><span>সংগ্রহকারী : </span><span class="slip-field">'+p.collector+'</span></div>':'')+
     (p.notes?'<div style="font-size:0.78rem;color:#4b5563;">মন্তব্য : '+p.notes+'</div>':'')+
     '</div>'+
-    // Signatures + QR (QR centre, between the two signatures)
-    '<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
-    '<div style="text-align:left;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>'+
-    '<div style="text-align:center;">'+(qrHtml||'')+'</div>'+
-    '<div style="text-align:right;font-size:0.78rem;color:#14532d;display:flex;flex-direction:column;align-items:flex-end;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div></div>'+
+    // Signatures + QR
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>'+
+    (qrHtml||'')+
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div></div>'+
     '<div class="slip-decorative" style="margin-top:10px;"></div>'+
     '</div>';
 }
 
 function formatBnDate(dateStr) {
-  return fmtDate(dateStr) || '...........';
+  if (!dateStr) return '...........';
+  try { return new Date(dateStr).toLocaleDateString('bn-BD',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+  catch(e) { return dateStr; }
 }
 
 // ── PRINT ───────────────────────────────────────────────────
@@ -1356,27 +1210,23 @@ function sendWhatsApp() {
   const p = currentSlipPayment;
   const tn = tenants.find(x=>x.id===p.tenantId);
   if (!tn?.mobile) { showToast('ভাড়াটিয়ার মোবাইল নম্বর নেই','error'); return; }
-  const msg = encodeURIComponent('📋 *ভাড়া রশিদ - '+settings.mktName+'*\n\nরসিদ নং: '+p.tenantSlipNo+'\nনাম: '+p.tenantName+'\nদোকান: '+p.shop+'\nমাস: '+p.month+' '+p.year+'\nভাড়া: ৳'+p.rent+'\nপরিশোধিত: ৳'+p.paid+'\nবাকি: ৳'+p.due+'\nতারিখ: '+fmtDate(p.date)+'\n\nধন্যবাদ।');
+  const msg = encodeURIComponent('📋 *ভাড়া রশিদ - '+settings.mktName+'*\n\nরসিদ নং: '+p.tenantSlipNo+'\nনাম: '+p.tenantName+'\nদোকান: '+p.shop+'\nমাস: '+p.month+' '+p.year+'\nভাড়া: ৳'+p.rent+'\nপরিশোধিত: ৳'+p.paid+'\nবাকি: ৳'+p.due+'\nতারিখ: '+p.date+'\n\nধন্যবাদ।');
   window.open('https://wa.me/88'+tn.mobile.replace(/[^0-9]/g,'')+'?text='+msg,'_blank');
 }
 
 // ── Monthly Bundle Print ─────────────────────────────────────
-async function printAllMonthReceipts() {
+function printAllMonthReceipts() {
   const monthF = document.getElementById('rcMonthFilter')?.value||'';
   const list   = payments.filter(p=>!monthF||(p.month+' '+p.year)===monthF);
   if (!list.length) { showToast('প্রিন্ট করার মতো কোনো রসিদ নেই','warning'); return; }
   showToast(list.length+'টি রসিদ প্রিন্ট হচ্ছে...');
   let allHtml = '';
-  showSyncOverlay(true, 'QR সহ রসিদ প্রস্তুত হচ্ছে...');
-  for (const p of list) {
-    let qr = '';
-    try { qr = await buildQrHtml(p); } catch(e) { console.warn(e); }
+  list.forEach(p => {
     allHtml += '<div style="page-break-after:always;">'+
-      generateSlipCopy(p,settings,'owner',qr)+
+      generateSlipCopy(p,settings,'owner','')+
       '<div style="text-align:center;padding:4px;font-size:.7rem;color:#aaa;">✂ কাটুন</div>'+
-      generateSlipCopy(p,settings,'tenant',qr)+'</div>';
-  }
-  showSyncOverlay(false);
+      generateSlipCopy(p,settings,'tenant','')+'</div>';
+  });
   const win=window.open('','_blank','width=920,height=700');
   win.document.write('<!DOCTYPE html><html><head><title>মাসিক রসিদ</title><style>'+SLIP_PRINT_CSS+'</style></head><body>'+
     allHtml+
@@ -1434,7 +1284,7 @@ function renderHistory() {
     '</tr></thead><tbody>'+
     list.map(p=>
       '<tr><td><b style="color:var(--accent);">#'+p.slipNo+'</b>'+(p.tenantSlipNo?'<br><span style="font-size:.7rem;color:var(--text-muted);">'+p.tenantSlipNo+'</span>':'')+'</td>'+
-      '<td style="font-size:.8rem;">'+fmtDate(p.date)+'</td>'+
+      '<td style="font-size:.8rem;">'+(p.date||'')+'</td>'+
       '<td>'+p.tenantName+'</td><td>'+p.shop+'</td>'+
       '<td>'+p.month+' '+(p.year||'')+'</td>'+
       '<td>৳'+(p.rent||0).toLocaleString()+'</td>'+
@@ -1448,7 +1298,7 @@ function renderHistory() {
 
 function exportPaymentHistory() {
   const data = JSON.stringify({payments,tenants,date:new Date().toISOString()},null,2);
-  downloadFile('payment_history_'+isoLocal(new Date())+'.json', data, 'application/json');
+  downloadFile('payment_history_'+new Date().toISOString().split('T')[0]+'.json', data, 'application/json');
   showToast('পেমেন্ট ইতিহাস ডাউনলোড হচ্ছে...');
 }
 
@@ -1479,7 +1329,7 @@ function renderAgreements() {
       '<div><div style="font-weight:700;font-size:0.95rem;">'+tn.name+'</div>'+
       '<div style="font-size:0.78rem;color:var(--text-muted);">'+tn.shop+' • '+tn.floor+'</div></div>'+
       '<div style="display:flex;gap:4px;flex-wrap:wrap;"><span class="badge '+st.cls+'">'+st.label+'</span>'+leaveTag+'</div></div>'+
-      '<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">শুরু: '+(fmtDate(tn.startDate)||'-')+' → শেষ: '+(fmtDate(tn.endDate)||'-')+'</div>'+
+      '<div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">শুরু: '+(tn.startDate||'-')+' → শেষ: '+(tn.endDate||'-')+'</div>'+
       '<div style="background:var(--border);border-radius:4px;height:5px;margin-bottom:6px;overflow:hidden;"><div style="height:100%;background:'+bc+';width:'+pct+'%;border-radius:4px;transition:width 0.5s;"></div></div>'+
       (st.days!==null&&st.days>=0?'<div style="font-size:0.75rem;color:var(--text-muted);">'+pct+'% সম্পন্ন • '+st.days+' দিন অবশিষ্ট</div>':'')+
       '<div style="display:flex;gap:5px;margin-top:10px;flex-wrap:wrap;">'+
@@ -1509,10 +1359,10 @@ function openLeaveRequest(tenantId) {
   const tn = tenants.find(x=>x.id===tenantId);
   if (!tn) return;
   document.getElementById('leaveRequestTenantId').value = tenantId;
-  const today=isoLocal(new Date());
+  const today=new Date().toISOString().split('T')[0];
   document.getElementById('leaveReqDate').value = today;
   const exit=new Date(); exit.setMonth(exit.getMonth()+3);
-  document.getElementById('leaveExitDate').value = isoLocal(exit);
+  document.getElementById('leaveExitDate').value = exit.toISOString().split('T')[0];
   document.getElementById('leaveReason').value = '';
   calcNoticedays();
 
@@ -1559,7 +1409,7 @@ async function saveLeaveRequest() {
   showToast('ছাড়ার আবেদন সংরক্ষণ হয়েছে ✅');
   // WhatsApp agreement notification
   if (tn.mobile) {
-    const msg=encodeURIComponent('📋 *ছেড়ে দেওয়ার আবেদন নিশ্চিতকরণ*\n\nনাম: '+tn.name+'\nদোকান: '+tn.shop+'\nআবেদন তারিখ: '+fmtDate(reqDate)+'\nপ্রস্থান তারিখ: '+fmtDate(exitDate)+'\nনোটিশ সময়: '+days+' দিন\n\nধন্যবাদ।');
+    const msg=encodeURIComponent('📋 *ছেড়ে দেওয়ার আবেদন নিশ্চিতকরণ*\n\nনাম: '+tn.name+'\nদোকান: '+tn.shop+'\nআবেদন তারিখ: '+reqDate+'\nপ্রস্থান তারিখ: '+exitDate+'\nনোটিশ সময়: '+days+' দিন\n\nধন্যবাদ।');
     setTimeout(()=>window.open('https://wa.me/88'+tn.mobile.replace(/[^0-9]/g,'')+'?text='+msg,'_blank'),500);
   }
   renderAgreements();
@@ -1578,10 +1428,10 @@ async function renderLeaveRequests() {
     const statusLabel=r.status==='approved'?'অনুমোদিত':r.status==='completed'?'সম্পন্ন':'অপেক্ষমাণ';
     return '<div style="padding:14px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:4px;">'+
-      '<div><div style="font-weight:700;font-size:.9rem;">'+r.tenantName+'</div><div style="font-size:.75rem;color:var(--text-muted);">'+r.shop+' • আবেদন: '+fmtDate(r.reqDate)+'</div></div>'+
+      '<div><div style="font-weight:700;font-size:.9rem;">'+r.tenantName+'</div><div style="font-size:.75rem;color:var(--text-muted);">'+r.shop+' • আবেদন: '+r.reqDate+'</div></div>'+
       '<div style="display:flex;gap:4px;"><span class="badge '+(daysLeft>0?'badge-yellow':'badge-red')+'">'+(daysLeft>0?daysLeft+' দিন বাকি':'মেয়াদ শেষ')+'</span>'+
       '<span class="badge '+statusCls+'">'+statusLabel+'</span></div></div>'+
-      '<div style="font-size:.82rem;margin-bottom:10px;">প্রস্থান: <strong>'+fmtDate(r.exitDate)+'</strong>'+(r.reason?' — '+r.reason:'')+'</div>'+
+      '<div style="font-size:.82rem;margin-bottom:10px;">প্রস্থান: <strong>'+r.exitDate+'</strong>'+(r.reason?' — '+r.reason:'')+'</div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap;">'+
       '<button onclick="approveLeaveRequest(\''+r.id+'\',\'approved\')" class="btn btn-success btn-sm"><i class="fas fa-check"></i> অনুমোদন</button>'+
       '<button onclick="archiveTenant(\''+r.tenantId+'\')" class="btn btn-danger btn-sm"><i class="fas fa-archive"></i> আর্কাইভ করুন</button>'+
@@ -1624,7 +1474,7 @@ async function renderArchivedTenants() {
       '<td>'+t.shop+'</td>'+
       '<td>৳'+(t.rent||0).toLocaleString()+'</td>'+
       '<td>৳'+(t.advance||0).toLocaleString()+'</td>'+
-      '<td style="font-size:.78rem;">'+fmtDate(t.archivedAt)+'</td>'+
+      '<td style="font-size:.78rem;">'+(t.archivedAt||'').split('T')[0]+'</td>'+
       '<td><button onclick="viewArchivedTenant(\''+t.id+'\')" class="btn btn-gray btn-sm"><i class="fas fa-eye"></i> দেখুন</button></td></tr>'
     ).join('')+'</tbody></table></div>';
 }
@@ -1633,7 +1483,7 @@ function viewArchivedTenant(id) {
   const list = JSON.parse(localStorage.getItem('archivedTenants')||'[]');
   const tn = list.find(x=>x.id===id);
   if (!tn) return;
-  alert(JSON.stringify({name:tn.name,shop:tn.shop,rent:tn.rent,advance:tn.advance,nid:tn.nid,mobile:tn.mobile,archivedAt:fmtDate(tn.archivedAt)},null,2));
+  alert(JSON.stringify({name:tn.name,shop:tn.shop,rent:tn.rent,advance:tn.advance,nid:tn.nid,mobile:tn.mobile,archivedAt:tn.archivedAt},null,2));
 }
 
 // ── Agreement Upload ─────────────────────────────────────────
@@ -1645,9 +1495,9 @@ function openAgreementUpload(tenantId) {
   document.getElementById('agUploadNote').value       = '';
   const _agf=document.getElementById('agFile'); if(_agf) _agf.value='';
   document.getElementById('agFilePreview').innerHTML  = '<i class="fas fa-file-pdf" style="color:#dc2626;font-size:2rem;display:block;margin-bottom:8px;"></i><span style="font-size:.82rem;color:var(--text-muted);">ক্লিক করে PDF/ছবি বেছে নিন</span>';
-  const now=new Date(); document.getElementById('agStartDate').value=isoLocal(now);
+  const now=new Date(); document.getElementById('agStartDate').value=now.toISOString().split('T')[0];
   const end=new Date(now); end.setFullYear(end.getFullYear()+1);
-  document.getElementById('agEndDate').value=isoLocal(end);
+  document.getElementById('agEndDate').value=end.toISOString().split('T')[0];
   openModal('agreementUploadModal');
 }
 
@@ -1763,7 +1613,7 @@ async function openAgreementView(tenantId) {
     '<div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;">'+
     '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">'+
     '<div><div style="font-weight:600;font-size:.88rem;"><i class="fas fa-'+(a.fileType==='application/pdf'?'file-pdf':'image')+'" style="color:'+(a.fileType==='application/pdf'?'#dc2626':'#2563eb')+';margin-right:6px;"></i>'+(a.fileName||'চুক্তি')+'</div>'+
-    '<div style="font-size:.74rem;color:var(--text-muted);">'+(a.type==='renewal'?'নবায়ন':'নতুন')+' • '+(fmtDate(a.startDate)||'-')+' → '+(fmtDate(a.endDate)||'-')+'</div>'+
+    '<div style="font-size:.74rem;color:var(--text-muted);">'+(a.type==='renewal'?'নবায়ন':'নতুন')+' • '+(a.startDate||'-')+' → '+(a.endDate||'-')+'</div>'+
     (a.note?'<div style="font-size:.74rem;color:var(--text-muted);">'+a.note+'</div>':'')+'</div>'+
     '<div style="display:flex;gap:6px;">'+
     '<button onclick="viewAgreementFile(\''+a.id+'\','+(a.chunks||1)+',\''+(a.fileType||'')+'\')" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i> দেখুন</button>'+
@@ -1849,7 +1699,7 @@ function renderDashboard() {
   // Activity
   document.getElementById('activityTimeline').innerHTML = activities.slice(0,8).map(a=>
     '<div class="timeline-item"><div class="timeline-dot" style="background:'+a.color+'22;color:'+a.color+';"><i class="fas fa-'+(a.icon||'circle')+'"></i></div>'+
-    '<div style="flex:1;"><div style="font-size:0.83rem;">'+a.text+'</div><div style="font-size:0.74rem;color:var(--text-muted);">'+fmtDateTime(a.time)+'</div></div></div>'
+    '<div style="flex:1;"><div style="font-size:0.83rem;">'+a.text+'</div><div style="font-size:0.74rem;color:var(--text-muted);">'+new Date(a.time).toLocaleString('bn-BD',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'})+'</div></div></div>'
   ).join('') || '<p style="color:var(--text-muted);font-size:0.83rem;">কোনো কার্যক্রম নেই</p>';
 
   buildMonthFilters(); updateDashChart(); renderShopPieChart();
@@ -1959,7 +1809,7 @@ async function exportBackup() {
     ? await Promise.all([FDB.getAll('tenants'),FDB.getAll('shops'),FDB.getAll('payments')])
     : [DB.get('tenants'),DB.get('shops'),DB.get('payments')];
   const backup={tenants:t,shops:s,payments:p,settings:await FDB.getSettings()||DB.getObj('settings',{}),version:'2.0',exportedAt:new Date().toISOString()};
-  downloadFile('hcm_backup_v2_'+isoLocal(new Date())+'.json', JSON.stringify(backup,null,2),'application/json');
+  downloadFile('hcm_backup_v2_'+new Date().toISOString().split('T')[0]+'.json', JSON.stringify(backup,null,2),'application/json');
   showToast('ব্যাকআপ ডাউনলোড হচ্ছে ☁️');
 }
 
@@ -2022,10 +1872,10 @@ async function loadDemoData() {
     {id:'S6',number:'C-01',floor:'৩য় তলা',size:'70', rent:4000,status:'occupied'},
   ];
   const demoTenants=[
-    {id:'T1',name:'মোঃ রফিকুল ইসলাম', mobile:'01712345678',nid:'1234567890',shop:'A-01',floor:'নিচতলা',rent:8000,advance:50000,monthlyDeduction:5000,deduction:5000,address:'পাহাড়তলী, চট্টগ্রাম',startDate:'2023-01-01',endDate:isoLocal(e1),serial:1,photo:'',archived:false},
-    {id:'T2',name:'মোছাঃ সালমা বেগম',  mobile:'01898765432',nid:'9876543210',shop:'A-02',floor:'নিচতলা',rent:7000,advance:40000,monthlyDeduction:4000,deduction:4000,address:'নাসিরাবাদ, চট্টগ্রাম',startDate:'2022-06-01',endDate:isoLocal(e2),serial:2,photo:'',archived:false},
-    {id:'T3',name:'মোঃ আব্দুল করিম',   mobile:'01611234567',nid:'5678901234',shop:'B-01',floor:'২য় তলা',rent:5000,advance:30000,monthlyDeduction:3000,deduction:3000,address:'বায়েজিদ, চট্টগ্রাম',  startDate:'2023-06-01',endDate:isoLocal(e3),serial:3,photo:'',archived:false},
-    {id:'T4',name:'মোঃ জাহাঙ্গীর আলম', mobile:'01511234567',nid:'3456789012',shop:'C-01',floor:'৩য় তলা',rent:4000,advance:20000,monthlyDeduction:2000,deduction:2000,address:'চকবাজার, চট্টগ্রাম', startDate:'2023-03-01',endDate:isoLocal(e3),serial:4,photo:'',archived:false},
+    {id:'T1',name:'মোঃ রফিকুল ইসলাম', mobile:'01712345678',nid:'1234567890',shop:'A-01',floor:'নিচতলা',rent:8000,advance:50000,monthlyDeduction:5000,deduction:5000,address:'পাহাড়তলী, চট্টগ্রাম',startDate:'2023-01-01',endDate:e1.toISOString().split('T')[0],serial:1,photo:'',archived:false},
+    {id:'T2',name:'মোছাঃ সালমা বেগম',  mobile:'01898765432',nid:'9876543210',shop:'A-02',floor:'নিচতলা',rent:7000,advance:40000,monthlyDeduction:4000,deduction:4000,address:'নাসিরাবাদ, চট্টগ্রাম',startDate:'2022-06-01',endDate:e2.toISOString().split('T')[0],serial:2,photo:'',archived:false},
+    {id:'T3',name:'মোঃ আব্দুল করিম',   mobile:'01611234567',nid:'5678901234',shop:'B-01',floor:'২য় তলা',rent:5000,advance:30000,monthlyDeduction:3000,deduction:3000,address:'বায়েজিদ, চট্টগ্রাম',  startDate:'2023-06-01',endDate:e3.toISOString().split('T')[0],serial:3,photo:'',archived:false},
+    {id:'T4',name:'মোঃ জাহাঙ্গীর আলম', mobile:'01511234567',nid:'3456789012',shop:'C-01',floor:'৩য় তলা',rent:4000,advance:20000,monthlyDeduction:2000,deduction:2000,address:'চকবাজার, চট্টগ্রাম', startDate:'2023-03-01',endDate:e3.toISOString().split('T')[0],serial:4,photo:'',archived:false},
   ];
   const months=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট'];
   const demoPayments=[]; let sn=1;
@@ -2168,8 +2018,16 @@ function updateSyncBadge() {
 // KEYBOARD SHORTCUTS
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
-  initDatePickers();
-  startAuthWatcher();
+  const user=localStorage.getItem('currentUser');
+  if (user) {
+    currentUser=user;
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    init();
+  } else {
+    document.getElementById('loginPage').style.display='flex';
+    document.getElementById('mainApp').style.display='none';
+  }
 });
 document.addEventListener('keydown', e=>{
   if (e.key==='Enter'&&document.getElementById('loginPage').style.display!=='none') doLogin();

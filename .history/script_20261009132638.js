@@ -63,7 +63,7 @@ function initDatePickers(){
   });
 }
 
-let db_fire = null, storage_fire = null, auth_fire = null;
+let db_fire = null, storage_fire = null;
 let FIREBASE_READY = false;
 let _realtimeUnsubs = [];
 
@@ -72,8 +72,7 @@ function initFirebase() {
     if (typeof firebase === 'undefined') return;
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     db_fire      = firebase.firestore();
-    try { storage_fire = firebase.storage(); } catch(e) { storage_fire = null; }
-    auth_fire    = firebase.auth();
+    storage_fire = firebase.storage();
     FIREBASE_READY = true;
     console.log('✅ Firebase v2 connected');
   } catch(e) { console.warn('⚠️ Firebase init failed:', e); }
@@ -296,76 +295,19 @@ function setLanguage(lang, save=true) {
 // ============================================================
 // AUTH
 // ============================================================
-let _appStarted = false;
-
-function authErrorBn(e) {
-  const c = (e && e.code) || '';
-  if (c === 'auth/invalid-credential' || c === 'auth/wrong-password' || c === 'auth/user-not-found' || c === 'auth/invalid-email')
-    return 'ইমেইল বা পাসওয়ার্ড ভুল';
-  if (c === 'auth/too-many-requests') return 'অনেকবার ভুল হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন';
-  if (c === 'auth/network-request-failed') return 'ইন্টারনেট সংযোগ নেই';
-  if (c === 'auth/operation-not-allowed') return 'Firebase এ Email/Password লগইন চালু করা নেই';
-  return 'লগইন ব্যর্থ: ' + (c || (e && e.message) || 'unknown');
+function doLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  if (u === 'admin' && p === 'admin123') {
+    currentUser = u;
+    localStorage.setItem('currentUser', u);
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    init();
+  } else { showToast('ভুল ব্যবহারকারীর নাম বা পাসওয়ার্ড', 'error'); }
 }
-
-async function doLogin() {
-  const email = (document.getElementById('loginUser').value || '').trim();
-  const pass  = document.getElementById('loginPass').value || '';
-  if (!email || !pass) { showToast('ইমেইল ও পাসওয়ার্ড দিন', 'error'); return; }
-  if (!auth_fire) { initFirebase(); }
-  if (!auth_fire) { showToast('Firebase লোড হয়নি। ইন্টারনেট চেক করে পেজ রিফ্রেশ করুন', 'error'); return; }
-  const btn = document.getElementById('loginBtn');
-  if (btn) btn.disabled = true;
-  try {
-    await auth_fire.signInWithEmailAndPassword(email, pass);   // বাকি কাজ onAuthStateChanged এ হয়
-  } catch (e) {
-    showToast(authErrorBn(e), 'error');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function resetPassword() {
-  const email = (document.getElementById('loginUser').value || '').trim();
-  if (!email) { showToast('আগে ইমেইল লিখুন', 'warning'); return; }
-  if (!auth_fire) initFirebase();
-  if (!auth_fire) { showToast('Firebase লোড হয়নি', 'error'); return; }
-  try {
-    await auth_fire.sendPasswordResetEmail(email);
-    showToast('পাসওয়ার্ড রিসেট লিংক ইমেইলে পাঠানো হয়েছে ✅');
-  } catch (e) { showToast(authErrorBn(e), 'error'); }
-}
-
-async function doLogout() {
-  if (!confirm('লগআউট করতে চান?')) return;
-  try { if (auth_fire) await auth_fire.signOut(); } catch (e) { console.warn(e); }
-  localStorage.removeItem('currentUser');
-  location.reload();
-}
-
-function showLoginScreen() {
-  _appStarted = false;
-  document.getElementById('loginPage').style.display = 'flex';
-  document.getElementById('mainApp').style.display = 'none';
-}
-
-function startAuthWatcher() {
-  initFirebase();
-  if (!auth_fire) { showLoginScreen(); return; }
-  auth_fire.onAuthStateChanged(user => {
-    if (user) {
-      currentUser = user.email || 'admin';
-      localStorage.setItem('currentUser', currentUser);
-      document.getElementById('loginPage').style.display = 'none';
-      document.getElementById('mainApp').style.display = 'block';
-      if (!_appStarted) { _appStarted = true; init(); }
-    } else {
-      // logged out: local cache e thaka private data muche din
-      ['tenants','shops','payments','activities','archivedTenants','leaveRequests','agreements'].forEach(k => localStorage.removeItem(k));
-      Object.keys(localStorage).filter(k => k.startsWith('slips_') || k.startsWith('agHistory_') || k.startsWith('agfile_')).forEach(k => localStorage.removeItem(k));
-      showLoginScreen();
-    }
-  });
+function doLogout() {
+  if (confirm('লগআউট করতে চান?')) { localStorage.removeItem('currentUser'); location.reload(); }
 }
 
 // ============================================================
@@ -1190,9 +1132,10 @@ async function buildQrHtml(p) {
   const token = await ensureReceipt(p);
   const src = await generateQRDataUrl(verifyUrlFor(token));
   if (!src) return '';
-  return '<div class="qr-container" style="display:flex;flex-direction:column;align-items:center;">'+
-    '<img src="'+src+'" width="84" height="84" alt="QR" style="display:block;border:2px solid #86efac;border-radius:6px;padding:3px;background:#fff;">'+
-    '<div style="font-size:0.7rem;color:#14532d;font-weight:600;margin-top:4px;line-height:1.3;white-space:nowrap;">QR স্ক্যান করে যাচাই করুন</div>'+
+  return '<div class="qr-container" style="margin-top:12px;padding-top:10px;border-top:1px dashed #86efac;">'+
+    '<img src="'+src+'" width="96" height="96" alt="QR">'+
+    '<div style="font-size:0.74rem;color:#14532d;font-weight:700;margin-top:5px;text-align:center;">স্ক্যান করে রসিদ যাচাই করুন</div>'+
+    '<div style="font-size:0.64rem;color:#6b7280;text-align:center;">Scan to verify this receipt • Ref: '+token.slice(0,8).toUpperCase()+'</div>'+
     '</div>';
 }
 
@@ -1255,11 +1198,11 @@ function generateSlipCopy(p, s, copyType, qrHtml) {
     (p.collector?'<div><span>সংগ্রহকারী : </span><span class="slip-field">'+p.collector+'</span></div>':'')+
     (p.notes?'<div style="font-size:0.78rem;color:#4b5563;">মন্তব্য : '+p.notes+'</div>':'')+
     '</div>'+
-    // Signatures + QR (QR centre, between the two signatures)
-    '<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
-    '<div style="text-align:left;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>'+
-    '<div style="text-align:center;">'+(qrHtml||'')+'</div>'+
-    '<div style="text-align:right;font-size:0.78rem;color:#14532d;display:flex;flex-direction:column;align-items:flex-end;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div></div>'+
+    // Signatures + QR
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>'+
+    '<div style="text-align:center;font-size:0.78rem;color:#14532d;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div></div>'+
+    (qrHtml||'')+
     '<div class="slip-decorative" style="margin-top:10px;"></div>'+
     '</div>';
 }
@@ -2169,7 +2112,16 @@ function updateSyncBadge() {
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   initDatePickers();
-  startAuthWatcher();
+  const user=localStorage.getItem('currentUser');
+  if (user) {
+    currentUser=user;
+    document.getElementById('loginPage').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    init();
+  } else {
+    document.getElementById('loginPage').style.display='flex';
+    document.getElementById('mainApp').style.display='none';
+  }
 });
 document.addEventListener('keydown', e=>{
   if (e.key==='Enter'&&document.getElementById('loginPage').style.display!=='none') doLogin();
