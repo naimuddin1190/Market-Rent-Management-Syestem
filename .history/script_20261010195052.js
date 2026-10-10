@@ -401,7 +401,6 @@ async function init() {
   showPage('dashboard');
   updateSyncBadge();
   startRealtimeListeners();
-  startScanWatcher();
   // Load owner signature
   if (!ownerSignature && settings.ownerSignatureUrl) ownerSignature = settings.ownerSignatureUrl;
 }
@@ -2116,50 +2115,6 @@ function renderReports() {
 // ============================================================
 // NOTIFICATIONS
 // ============================================================
-
-// ── QR scan live notification (কেউ রসিদ স্ক্যান করলে admin কে জানানো) ──
-let _scanEvents = [], _scanFirstLoad = true;
-function _scanSeenAt() { try { return parseInt(localStorage.getItem('scanSeenAt') || '0', 10); } catch (e) { return 0; } }
-function scanEventMs(e) { return e && e.at && e.at.toMillis ? e.at.toMillis() : 0; }
-function scanEventText(e) {
-  return (e.tenantName || 'অজানা') + (e.shop ? ' (' + e.shop + ')' : '') + ' এর রসিদ' + (e.month ? ' — ' + e.month + ' ' + (e.year || '') : '') + ' স্ক্যান করা হয়েছে';
-}
-function scanBeep() {
-  try {
-    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    const ctx = new AC(), o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.06; o.connect(g); g.connect(ctx.destination);
-    o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 180);
-  } catch (e) {}
-}
-function enableDeviceNotifications() {
-  if (!('Notification' in window)) { showToast('এই ব্রাউজারে নোটিফিকেশন সাপোর্ট নেই', 'warning'); return; }
-  Notification.requestPermission().then(r => { showToast(r === 'granted' ? 'ডিভাইস নোটিফিকেশন চালু হয়েছে ✅' : 'অনুমতি দেওয়া হয়নি', r === 'granted' ? 'success' : 'warning'); updateNotifications(); });
-}
-function startScanWatcher() {
-  if (!FIREBASE_READY) return;
-  _scanFirstLoad = true; _scanEvents = [];
-  const u = db_fire.collection('scanEvents').orderBy('at', 'desc').limit(30).onSnapshot(snap => {
-    if (_scanFirstLoad) {
-      _scanEvents = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(e => scanEventMs(e));
-      _scanFirstLoad = false;
-    } else {
-      snap.docChanges().forEach(ch => {
-        if (ch.type !== 'added') return;
-        const e = { id: ch.doc.id, ...ch.doc.data() };
-        if (!scanEventMs(e) || _scanEvents.some(x => x.id === e.id)) return;
-        _scanEvents.unshift(e);
-        showToast('🔔 ' + scanEventText(e));
-        scanBeep();
-        try { if ('Notification' in window && Notification.permission === 'granted') new Notification('রসিদ স্ক্যান', { body: scanEventText(e), icon: 'assets/logo.png' }); } catch (er) {}
-      });
-      _scanEvents = _scanEvents.slice(0, 30);
-    }
-    updateNotifications();
-  }, err => console.warn('scanEvents:', err && err.code));
-  _realtimeUnsubs.push(u);
-}
-
 function updateNotifications() {
   tenants=DB.get('tenants'); payments=DB.get('payments');
   const notifs=[];
@@ -2171,24 +2126,18 @@ function updateNotifications() {
   const thisM=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'][new Date().getMonth()];
   const paid=new Set(payments.filter(p=>p.month===thisM&&p.year===new Date().getFullYear()).map(p=>p.tenantId));
   tenants.filter(t=>!t.archived).forEach(tn=>{ if(!paid.has(tn.id)) notifs.push({type:'info',text:tn.name+' এই মাসের ভাড়া দেননি',icon:'money-bill-wave'}); });
-  const seenAt = _scanSeenAt();
-  const scanN = (_scanEvents || []).slice(0, 8).map(e => ({ type: 'scan', unread: scanEventMs(e) > seenAt, text: '🔔 ' + scanEventText(e), sub: fmtDateTime(new Date(scanEventMs(e))) + (e.ua ? ' • ' + e.ua : ''), icon: 'qrcode' }));
-  const newScans = scanN.filter(n => n.unread).length;
-  const b=document.getElementById('notifBadge'); if(b) b.style.display=(notifs.length||newScans)?'block':'none';
-  const clrs={danger:'#dc2626',warning:'#d97706',info:'#2563eb',scan:'#16a34a'};
-  const notifHtml = n => '<div class="notification-item'+(n.unread===false?'':' unread')+'"><div style="display:flex;align-items:center;gap:8px;">'+
+  const b=document.getElementById('notifBadge'); if(b) b.style.display=notifs.length?'block':'none';
+  const clrs={danger:'#dc2626',warning:'#d97706',info:'#2563eb'};
+  document.getElementById('notifList').innerHTML=notifs.slice(0,10).map(n=>
+    '<div class="notification-item unread"><div style="display:flex;align-items:center;gap:8px;">'+
     '<i class="fas fa-'+n.icon+'" style="color:'+clrs[n.type]+';font-size:0.8rem;"></i>'+
-    '<span style="font-size:0.82rem;">'+n.text+(n.sub?'<br><span style="font-size:.7rem;color:var(--text-muted);">'+n.sub+'</span>':'')+'</span></div></div>';
-  const devBtn = ('Notification' in window && Notification.permission === 'default')
-    ? '<div style="padding:8px 12px;border-bottom:1px solid var(--border);"><button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;" onclick="enableDeviceNotifications()"><i class="fas fa-bell"></i> ডিভাইস নোটিফিকেশন চালু করুন</button></div>' : '';
-  document.getElementById('notifList').innerHTML=devBtn+scanN.concat(notifs).slice(0,14).map(notifHtml).join('')||'<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.83rem;">কোনো নোটিফিকেশন নেই</div>';
+    '<span style="font-size:0.82rem;">'+n.text+'</span></div></div>'
+  ).join('')||'<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.83rem;">কোনো নোটিফিকেশন নেই</div>';
 }
 
 function toggleNotifPanel() {
   const p=document.getElementById('notifPanel');
-  const opening = p.style.display!=='block';
-  p.style.display=opening?'block':'none';
-  if (!opening) { try { localStorage.setItem('scanSeenAt', String(Date.now())); } catch(e) {} updateNotifications(); }
+  p.style.display=p.style.display==='block'?'none':'block';
 }
 document.addEventListener('click', e => {
   if (!e.target.closest('[onclick="toggleNotifPanel()"]')&&!e.target.closest('#notifPanel')) {

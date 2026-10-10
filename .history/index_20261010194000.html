@@ -632,8 +632,9 @@ body {
           <h3 style="font-weight:700;margin-bottom:14px;font-size:.95rem;"><i class="fas fa-file-invoice" style="color:var(--accent);"></i> তাৎক্ষণিক মেমো / রসিদ</h3>
           <div class="form-grid">
             <div class="form-group"><label class="form-label">ধরন</label>
-              <select id="mType" class="form-input form-select" onchange="memoTypeChanged()"></select>
-              <input id="mTypeCustom" class="form-input" placeholder="মেমোর শিরোনাম লিখুন" style="display:none;margin-top:6px;"></div>
+              <select id="mType" class="form-input form-select">
+                <option>নগদ মেমো</option><option>টাকা প্রাপ্তি রসিদ</option><option>বিল</option><option>বকেয়া নোটিশ</option><option>অগ্রিম রসিদ</option>
+              </select></div>
             <div class="form-group"><label class="form-label">তারিখ</label><input id="mDate" type="date" class="form-input"></div>
             <div class="form-group" style="grid-column:1/-1;"><label class="form-label">ভাড়াটিয়া (বাছাই করলে নাম/দোকান নিজে বসবে)</label>
               <select id="mTenant" class="form-input form-select" onchange="memoTenantChanged()"></select></div>
@@ -644,7 +645,6 @@ body {
           </div>
           <label class="form-label" style="margin-top:4px;">আইটেম (বিবরণ • পরিমাণ • দর)</label>
           <div id="mItems"></div>
-          <div id="mTables"></div>
           <button type="button" class="btn btn-outline btn-sm" onclick="memoAddRow()" style="margin-bottom:12px;"><i class="fas fa-plus"></i> আইটেম যোগ</button>
           <div class="form-grid">
             <div class="form-group"><label class="form-label">ছাড় (৳)</label><input id="mDisc" type="number" step="any" class="form-input" oninput="memoTotals()"></div>
