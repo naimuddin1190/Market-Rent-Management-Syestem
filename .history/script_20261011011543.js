@@ -2784,15 +2784,13 @@ function memoFromCalc() {
 
 // ── monthly expense calculator (Firebase: "expenses") ─────────
 const EXP_CATS = ['বিদ্যুৎ বিল', 'পানির বিল', 'পরিষ্কার-পরিচ্ছন্নতা', 'জেনারেটর / লিফট', 'মেরামত ও রক্ষণাবেক্ষণ', 'কর্মচারী বেতন', 'নিরাপত্তা', 'ট্যাক্স / খাজনা', 'অন্যান্য'];
-let _expDraft = [], _expEditIds = null, _expYM = '', _expFormYM = '', _expBuilt = false;
-const _expKey = e => e.ym || (e.date || '').slice(0, 7);
+let _expDraft = [], _expEditIds = null, _expYM = '', _expBuilt = false;
 const _expNewRow = () => ({ date: isoLocal(new Date()), details: '', amount: '' });
 const _expAll = () => DB.get('expenses');
 
 function expInit() {
   const box = document.getElementById('expensePanel'); if (!box) return;
   if (!_expYM) _expYM = isoLocal(new Date()).slice(0, 7);
-  if (!_expFormYM) _expFormYM = _expYM;
   if (!_expDraft.length) _expDraft = [_expNewRow()];
   if (!_expBuilt) {
     const yNow = new Date().getFullYear();
@@ -2800,7 +2798,6 @@ function expInit() {
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;align-items:start;">' +
       '<div class="stat-card" style="padding:20px;"><h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-crown" style="color:#f59e0b;"></i> <i class="fas fa-wallet" style="color:var(--accent);"></i> খরচ লিখুন</h3>' +
       '<p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">তারিখ বাছুন, বিবরণ ও টাকা লিখুন। সেভ করলে Firebase-এ থাকবে।</p>' +
-      '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:10px 12px;margin-bottom:12px;"><label class="form-label" style="color:#166534;font-weight:700;">কোন মাসের টাকা থেকে খরচ করছেন?</label><div style="display:flex;gap:8px;"><select id="expFMonth" class="form-input form-select" style="flex:1;" onchange="expFormYMChanged()">' + BN_MONTHS.map((mn, i) => '<option value="' + String(i + 1).padStart(2, '0') + '">' + mn + '</option>').join('') + '</select><select id="expFYear" class="form-input form-select" style="width:110px;" onchange="expFormYMChanged()">' + Array.from({ length: 8 }, (_, i) => yNow - 5 + i).map(y => '<option>' + y + '</option>').join('') + '</select></div><div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;">খরচের তারিখ যেকোনো হতে পারে — হিসাব এই মাসের নামে জমা হবে।</div></div>' +
       '<div id="expEditBanner" style="display:none;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:8px;padding:8px 12px;font-size:.82rem;margin-bottom:10px;"></div>' +
       '<div id="expDraft"></div>' +
       '<button type="button" class="btn btn-outline btn-sm" id="expAddRowBtn" onclick="expRowAdd()" style="margin-bottom:12px;"><i class="fas fa-plus"></i> আরেকটি খরচ যোগ</button>' +
@@ -2813,7 +2810,6 @@ function expInit() {
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">' +
       '<select id="expMonthSel" class="form-input form-select" style="flex:1;min-width:120px;" onchange="expYMChanged()">' + BN_MONTHS.map((mn, i) => '<option value="' + String(i + 1).padStart(2, '0') + '">' + mn + '</option>').join('') + '</select>' +
       '<select id="expYearSel" class="form-input form-select" style="width:110px;" onchange="expYMChanged()">' + Array.from({ length: 8 }, (_, i) => yNow - 5 + i).map(y => '<option>' + y + '</option>').join('') + '</select>' +
-      '<button type="button" class="btn btn-outline" onclick="expViewMonth()"><i class="fas fa-file-invoice"></i> মেমো দেখুন</button>' +
       '<button type="button" class="btn btn-primary" onclick="expPrintMonth()"><i class="fas fa-print"></i> মাসিক প্রিন্ট</button></div>' +
       '<div id="expMonthView"></div></div></div>' +
       '<div class="stat-card" style="padding:20px;margin-top:20px;"><h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-cloud" style="color:var(--accent);"></i> মাসওয়ারি সংরক্ষিত হিসাব (Firebase)</h3><div id="expMonthsList"></div></div>';
@@ -2823,9 +2819,6 @@ function expInit() {
   const ms = document.getElementById('expMonthSel'), ys = document.getElementById('expYearSel');
   if (ys && ![...ys.options].some(o => o.value === y)) ys.insertAdjacentHTML('beforeend', '<option>' + y + '</option>');
   if (ms) ms.value = mo; if (ys) ys.value = y;
-  const [fy, fm] = _expFormYM.split('-'), fys = document.getElementById('expFYear'), fms = document.getElementById('expFMonth');
-  if (fys && ![...fys.options].some(o => o.value === fy)) fys.insertAdjacentHTML('beforeend', '<option>' + fy + '</option>');
-  if (fms) fms.value = fm; if (fys) fys.value = fy;
   expRenderDraft(); expRenderMonth();
   FDB.getAll('expenses').then(() => expRenderMonth()).catch(() => {});
   FDB.getAll('payments').then(r => { if (r && r.length) payments = r; expLive(); }).catch(() => {});
@@ -2837,14 +2830,13 @@ function expRent(ym) {
 function expLive() {
   const el = document.getElementById('expLive'); if (!el) return;
   const [y, mo] = _expYM.split('-'), rent = expRent(_expYM), spent = _expMonthList().reduce((a, e) => a + _n(e.amount), 0), bal = rent - spent;
-  const pend = (_expEditIds || _expFormYM !== _expYM) ? 0 : _expDraft.reduce((a, r) => a + _n(r.amount), 0);
+  const pend = _expEditIds ? 0 : _expDraft.reduce((a, r) => a + _n(r.amount), 0);
   const box = (l, v, c) => '<div style="flex:1;min-width:130px;"><div style="font-size:.74rem;opacity:.85;">' + l + '</div><div style="font-size:1.35rem;font-weight:800;color:' + (c || '#fff') + ';">' + v + '</div></div>';
   el.innerHTML = '<div style="background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;border-radius:14px;padding:16px 18px;">' +
     '<div style="font-weight:700;font-size:.9rem;margin-bottom:10px;"><i class="fas fa-circle" style="color:#4ade80;font-size:.5rem;vertical-align:middle;"></i> লাইভ — ' + BN_MONTHS[+mo - 1] + ' ' + y + '</div>' +
     '<div style="display:flex;gap:14px;flex-wrap:wrap;">' + box(BN_MONTHS[+mo - 1] + ' মোট ভাড়া', money(rent)) + box('মোট খরচ', '−' + money(spent), '#fecaca') + box('অবশিষ্ট ব্যালেন্স', money(bal), bal < 0 ? '#fecaca' : '#bbf7d0') + '</div>' +
     (pend > 0 ? '<div style="margin-top:10px;font-size:.78rem;opacity:.9;">ফর্মের অসেভড খরচ ' + money(pend) + ' সেভ হলে ব্যালেন্স হবে <b>' + money(bal - pend) + '</b></div>' : '') + '</div>';
 }
-function expFormYMChanged() { _expFormYM = document.getElementById('expFYear').value + '-' + document.getElementById('expFMonth').value; expLive(); }
 function expYMChanged() { _expYM = document.getElementById('expYearSel').value + '-' + document.getElementById('expMonthSel').value; expRenderMonth(); }
 
 function expRenderDraft() {
@@ -2883,13 +2875,13 @@ async function expSave() {
   let ok = true;
   for (const r of rows) {
     const id = r.id || ('EXP' + Date.now() + Math.floor(Math.random() * 100000));
-    const rec = { details: String(r.details).trim(), amount: _r2(_n(r.amount)), date: r.date || isoLocal(new Date()), ym: _expFormYM };
+    const rec = { details: String(r.details).trim(), amount: _r2(_n(r.amount)), date: r.date || isoLocal(new Date()) };
     if (!r.id) rec.createdAt = new Date().toISOString();
     if (!(await FDB.save('expenses', id, rec))) ok = false;
   }
   if (editing) for (const id of _expEditIds.filter(id => !rows.some(r => r.id === id))) await FDB.delete('expenses', id);
   showToast(ok ? (editing ? 'হিসাব আপডেট হয়েছে ✅' : rows.length + ' টি খরচ সেভ হয়েছে ✅') : 'শুধু এই ডিভাইসে সেভ হয়েছে', ok ? 'success' : 'error');
-  _expYM = _expFormYM;
+  if (!editing) _expYM = (rows[0].date || isoLocal(new Date())).slice(0, 7);
   expDraftReset(); expInit();
 }
 function _expEditMode(ids, text) {
@@ -2900,31 +2892,19 @@ function _expEditMode(ids, text) {
 }
 function expEdit(id) {
   const e = _expAll().find(x => x.id === id); if (!e) return;
-  _expFormYM = _expKey(e); _expDraft = [{ id, date: e.date, details: e.details || e.cat || '', amount: e.amount }];
+  _expDraft = [{ id, date: e.date, details: e.details || e.cat || '', amount: e.amount }];
   _expEditMode([id], 'একটি খরচ সম্পাদনা');
 }
 function _ymLabel(ym) { const [y, m] = ym.split('-'); return BN_MONTHS[+m - 1] + ' ' + y; }
 function expEditMonth(ym) {
-  _expYM = ym; _expFormYM = ym; const list = _expMonthList(); if (!list.length) return;
+  _expYM = ym; const list = _expMonthList(); if (!list.length) return;
   expInit();
   _expDraft = list.map(e => ({ id: e.id, date: e.date, details: e.details || e.cat || '', amount: e.amount }));
   _expEditMode(list.map(e => e.id), _ymLabel(ym) + ' মাসের হিসাব সম্পাদনা');
 }
 function expViewMonth(ym) {
-  if (ym) { _expYM = ym; expInit(); }
-  const list = _expMonthList();
-  if (!list.length) { showToast('এই মাসে কোনো খরচ নেই', 'error'); return; }
-  const spent = list.reduce((a, e) => a + _n(e.amount), 0), rent = expRent(_expYM), bal = rent - spent;
-  const m = {
-    id: 'EXPM-' + _expYM, no: 'EXP-' + _expYM, title: 'মাসিক খরচের হিসাব', date: isoLocal(new Date()),
-    nameLabel: 'মাস', name: _ymLabel(_expYM), shop: '', mobile: '', items: [], collector: '', note: '',
-    tables: [
-      { title: 'খরচের তালিকা', cols: ['#', 'তারিখ', 'বিবরণ', 'টাকা'], num: [3], rows: list.map((e, i) => [i + 1, fmtDate(e.date), _expText(e), money(e.amount)]), foot: ['', '', 'মোট খরচ', money(spent)] },
-      { title: 'ভাড়া ও অবশিষ্ট ব্যালেন্স', cols: ['বিবরণ', 'টাকা'], num: [1], rows: [[_ymLabel(_expYM) + ' মোট ভাড়া আদায়', money(rent)], ['মোট খরচ', '−' + money(spent)]], foot: ['অবশিষ্ট ব্যালেন্স', money(bal)] }
-    ],
-    noSum: true, sub: _r2(spent), disc: 0, total: _r2(spent), paid: 0, due: _r2(spent)
-  };
-  memoShow(m);
+  _expYM = ym; expInit();
+  const v = document.getElementById('expMonthView'); if (v) v.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 async function expDeleteMonth(ym) {
   const prev = _expYM; _expYM = ym; const list = _expMonthList(); _expYM = prev;
@@ -2940,7 +2920,7 @@ async function expDelete(id) {
 }
 function expRenderMonths() {
   const box = document.getElementById('expMonthsList'); if (!box) return;
-  const g = {}; _expAll().forEach(e => { const k = _expKey(e); if (k.length === 7) g[k] = (g[k] || []).concat(e); });
+  const g = {}; _expAll().forEach(e => { const k = (e.date || '').slice(0, 7); if (k.length === 7) g[k] = (g[k] || []).concat(e); });
   const keys = Object.keys(g).sort().reverse();
   box.innerHTML = keys.length ? keys.map(k => {
     const spent = g[k].reduce((a, e) => a + _n(e.amount), 0), rent = expRent(k), bal = rent - spent;
@@ -2952,7 +2932,7 @@ function expRenderMonths() {
       '<button class="btn btn-danger btn-sm" onclick="expDeleteMonth(\'' + k + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
   }).join('') : '<p style="text-align:center;color:var(--text-muted);padding:16px;font-size:.84rem;">এখনো কোনো মাসের হিসাব সেভ করা নেই</p>';
 }
-function _expMonthList() { return _expAll().filter(e => _expKey(e) === _expYM).sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.createdAt || '').localeCompare(String(b.createdAt || ''))); }
+function _expMonthList() { return _expAll().filter(e => (e.date || '').slice(0, 7) === _expYM).sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.createdAt || '').localeCompare(String(b.createdAt || ''))); }
 const _expText = e => e.details || e.cat || 'খরচ';
 function expRenderMonth() {
   expLive(); expRenderMonths();
@@ -2990,7 +2970,7 @@ function expPrintMonth() {
 function expPrintDraft() {
   const list = _expDraft.filter(r => _n(r.amount) > 0).map(r => ({ date: r.date, details: r.details, amount: _n(r.amount) }));
   if (!list.length) { showToast('কমপক্ষে একটি খরচের টাকা দিন', 'error'); return; }
-  _expPrint('খরচের হিসাব', _ymLabel(_expFormYM) + ' মাসের টাকা থেকে • ' + fmtDate(isoLocal(new Date())), list);
+  _expPrint('খরচের হিসাব', 'তারিখ: ' + fmtDate(isoLocal(new Date())), list);
 }
 
 // ── memo builder ─────────────────────────────────────────────
@@ -3098,15 +3078,15 @@ function memoHtml(m) {
     '<div style="font-size:.9rem;font-weight:800;color:#14532d;">নং-' + _esc(m.no) + '</div>' +
     '<div style="margin-left:auto;font-size:.84rem;color:#166534;">তারিখ: <span class="slip-field">' + fmtDate(m.date) + '</span></div></div>' +
     '<div class="memo-meta">' +
-    '<div>' + (m.nameLabel || 'নাম') + ' : <span class="slip-field">' + _esc(m.name || '-') + '</span></div>' +
+    '<div>নাম : <span class="slip-field">' + _esc(m.name || '-') + '</span></div>' +
     (m.shop ? '<div>দোকান : <span class="slip-field">' + _esc(m.shop) + '</span></div>' : '') +
     (m.mobile ? '<div>মোবাইল : <span class="slip-field">' + _esc(m.mobile) + '</span></div>' : '') + '</div>' +
     ((m.items || []).length ? '<table class="memo-table"><thead><tr><th>#</th><th>বিবরণ</th><th class="r">পরিমাণ</th><th class="r">দর</th><th class="r">টাকা</th></tr></thead><tbody>' + rows + '</tbody></table>' : '') +
     (m.tables || []).map(calcTableHtml).join('') +
-    (m.noSum ? '' : '<div class="memo-sum"><div><span>মোট</span><span>' + money(m.sub) + '</span></div>' +
+    '<div class="memo-sum"><div><span>মোট</span><span>' + money(m.sub) + '</span></div>' +
     (m.disc ? '<div><span>ছাড়</span><span>−' + money(m.disc) + '</span></div>' : '') +
     '<div class="tot"><span>সর্বমোট</span><span>' + money(m.total) + '</span></div>' +
-    (m.paid ? '<div><span>পরিশোধিত</span><span>' + money(m.paid) + '</span></div><div style="color:' + (m.due > 0 ? '#dc2626' : '#16a34a') + ';font-weight:700;"><span>' + (m.due > 0 ? 'বাকি' : 'পূর্ণ পরিশোধিত') + '</span><span>' + (m.due > 0 ? money(m.due) : '✓') + '</span></div>' : '') + '</div>') +
+    (m.paid ? '<div><span>পরিশোধিত</span><span>' + money(m.paid) + '</span></div><div style="color:' + (m.due > 0 ? '#dc2626' : '#16a34a') + ';font-weight:700;"><span>' + (m.due > 0 ? 'বাকি' : 'পূর্ণ পরিশোধিত') + '</span><span>' + (m.due > 0 ? money(m.due) : '✓') + '</span></div>' : '') + '</div>' +
     '<div class="memo-words">কথায় : <span class="slip-note">' + takaInWords(m.total) + '</span></div>' +
     (m.note ? '<div style="font-size:.8rem;color:#4b5563;">মন্তব্য : <span class="slip-note">' + _esc(m.note) + '</span></div>' : '') +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:22px;padding-top:10px;border-top:1px dashed #86efac;font-size:.78rem;color:#14532d;">' +

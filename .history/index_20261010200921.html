@@ -86,8 +86,6 @@ body {
 .nav-item.active { background: rgba(74,222,128,0.15); color: #4ade80; border-left-color: #4ade80; font-weight: 600; }
 .nav-item i { width: 18px; text-align: center; font-size: 0.9rem; }
 .main-content { margin-left: var(--sidebar-w); min-height: 100vh; transition: margin-left 0.3s; }
-body.sidebar-collapsed { --sidebar-w: 0px; }
-body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
 
 /* ============================================================
    TOPBAR
@@ -309,12 +307,6 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
 .section-header h1 { font-size: 1.4rem; font-weight: 700; }
 .tab-btn { padding: 7px 16px; border-radius: 8px; font-size: 0.83rem; font-weight: 500; cursor: pointer; border: 1.5px solid var(--border); background: transparent; color: var(--text-primary); font-family: var(--font-bn); transition: all 0.2s; }
 .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.tab-btn.prem { border-color: #f59e0b; background: linear-gradient(135deg,#fffbeb,#fef3c7); color: #92400e; font-weight: 700; }
-.tab-btn.prem.active { background: linear-gradient(135deg,#f59e0b,#d97706); color: #fff; border-color: #d97706; }
-.tab-btn.prem .fa-crown { color: #f59e0b; margin-right: 2px; }
-.tab-btn.prem.active .fa-crown { color: #fff; }
-.prem-group { display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding:8px 10px; border:1.5px dashed #f59e0b; border-radius:12px; background:rgba(245,158,11,.06); }
-.prem-group .pg-label { font-size:.7rem; font-weight:800; color:#b45309; letter-spacing:.04em; }
 .info-box { background: #fef9c3; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; font-size: .82rem; color: #92400e; margin-bottom: 14px; }
 .info-box.info { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
 .info-box.success { background: #dcfce7; border-color: #86efac; color: #166534; }
@@ -630,8 +622,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">হিসাব ও তাৎক্ষণিক মেমো</h1>
       <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:16px;">মার্কেটের সব ধরনের হিসাব করুন, তারপর এক ক্লিকে মেমো বা রসিদ বানিয়ে প্রিন্ট / JPG / WhatsApp এ পাঠান।</p>
       <div id="calcTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;"></div>
-      <div id="expensePanel" style="display:none;"></div>
-      <div id="calcGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;align-items:start;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;align-items:start;">
         <div class="stat-card" style="padding:20px;">
           <h3 style="font-weight:700;margin-bottom:14px;font-size:.95rem;"><i class="fas fa-calculator" style="color:var(--accent);"></i> হিসাব</h3>
           <div id="calcForm"></div>
@@ -661,18 +652,14 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
           </div>
           <div id="mTotals" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:.88rem;display:grid;gap:4px;margin-bottom:12px;"></div>
           <div class="form-group"><label class="form-label">মন্তব্য</label><input id="mNote" class="form-input" placeholder="ঐচ্ছিক"></div>
-          <div id="memoEditBanner" style="display:none;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:8px;padding:8px 12px;font-size:.82rem;margin-bottom:10px;"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" id="memoBtnMake" class="btn btn-primary" onclick="memoSave(false)" style="flex:1;justify-content:center;"><i class="fas fa-file-invoice"></i> মেমো তৈরি করুন</button>
+            <button type="button" class="btn btn-primary" onclick="memoSave()" style="flex:1;justify-content:center;"><i class="fas fa-file-invoice"></i> মেমো তৈরি করুন</button>
             <button type="button" class="btn btn-ghost" onclick="memoReset()"><i class="fas fa-eraser"></i> নতুন</button>
           </div>
-          <button type="button" id="memoBtnStore" class="btn btn-outline" onclick="memoSave(true)" style="margin-top:8px;width:100%;justify-content:center;border-color:#16a34a;color:#166534;"><i class="fas fa-cloud-upload-alt"></i> সেভ করে মেমো তৈরি করুন (Firebase-এ থাকবে)</button>
-          <button type="button" id="memoBtnUpdate" class="btn btn-primary" onclick="memoSave(true)" style="display:none;margin-top:8px;width:100%;justify-content:center;background:#d97706;"><i class="fas fa-sync-alt"></i> আপডেট করুন</button>
-          <button type="button" id="memoBtnCancel" class="btn btn-ghost" onclick="memoReset()" style="display:none;margin-top:6px;width:100%;justify-content:center;"><i class="fas fa-times"></i> সম্পাদনা বাতিল</button>
         </div>
       </div>
-      <div class="stat-card" id="memoHistoryCard" style="padding:20px;margin-top:20px;">
-        <h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-cloud" style="color:var(--accent);"></i> সংরক্ষিত মেমো (Firebase) — যেকোনো ডিভাইস থেকে দেখা যাবে</h3>
+      <div class="stat-card" style="padding:20px;margin-top:20px;">
+        <h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-history" style="color:var(--accent);"></i> সাম্প্রতিক মেমো</h3>
         <div id="memoHistory"></div>
       </div>
     </div>
