@@ -631,6 +631,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
       <p style="font-size:.84rem;color:var(--text-muted);margin-bottom:16px;">মার্কেটের সব ধরনের হিসাব করুন, তারপর এক ক্লিকে মেমো বা রসিদ বানিয়ে প্রিন্ট / JPG / WhatsApp এ পাঠান।</p>
       <div id="calcTabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;"></div>
       <div id="expensePanel" style="display:none;"></div>
+      <div id="advPanel" style="display:none;"></div>
       <div id="calcGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;align-items:start;">
         <div class="stat-card" style="padding:20px;">
           <h3 style="font-weight:700;margin-bottom:14px;font-size:.95rem;"><i class="fas fa-calculator" style="color:var(--accent);"></i> হিসাব</h3>
@@ -672,7 +673,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
         </div>
       </div>
       <div class="stat-card" id="memoHistoryCard" style="padding:20px;margin-top:20px;">
-        <h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-cloud" style="color:var(--accent);"></i> সংরক্ষিত মেমো (Firebase) — যেকোনো ডিভাইস থেকে দেখা যাবে</h3>
+        <h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-cloud" style="color:var(--accent);"></i> সংরক্ষিত মেমো — ভাড়াটিয়ার নামের ফোল্ডার (Firebase)</h3>
         <div id="memoHistory"></div>
       </div>
     </div>
@@ -1077,7 +1078,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
 <div id="langToggle" style="position:fixed;bottom:24px;left:calc(var(--sidebar-w) + 16px);z-index:500;display:flex;box-shadow:0 2px 12px rgba(0,0,0,.2);border-radius:20px;overflow:hidden;">
   <button onclick="setLanguage('bn')" id="langBnBtn" class="btn btn-primary btn-sm" style="border-radius:20px 0 0 20px;padding:6px 14px;">বাং</button>
   <button onclick="setLanguage('en')" id="langEnBtn" class="btn btn-ghost btn-sm" style="border-radius:0 20px 20px 0;padding:6px 14px;">EN</button>
-</div> 
+</div>
 
 <!-- ============================================================
      JAVASCRIPT

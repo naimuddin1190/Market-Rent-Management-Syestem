@@ -364,7 +364,7 @@ function startAuthWatcher() {
       if (!_appStarted) { _appStarted = true; init(); }
     } else {
       // logged out: local cache e thaka private data muche din
-      ['tenants','shops','payments','activities','archivedTenants','leaveRequests','agreements','memos','expenses'].forEach(k => localStorage.removeItem(k));
+      ['tenants','shops','payments','activities','archivedTenants','leaveRequests','agreements','memos','expenses','advLedger'].forEach(k => localStorage.removeItem(k));
       Object.keys(localStorage).filter(k => k.startsWith('slips_') || k.startsWith('agHistory_') || k.startsWith('agfile_')).forEach(k => localStorage.removeItem(k));
       showLoginScreen();
     }
@@ -2684,11 +2684,12 @@ const BN_MONTHS = ['জানুয়ারি','ফেব্রুয়ার
 const _tmonths = t => t.startDate ? Math.max(0, Math.floor((new Date() - new Date(t.startDate)) / (1000 * 60 * 60 * 24 * 30))) : 0;
 let _calcActive = 'rent', _calcLast = null, _calcRows = {};
 
-const PREMIUM_IDS = ['due', 'deduction', 'expense'];
+const PREMIUM_IDS = ['due', 'deduction', 'expense', 'advledger'];
+const ADV_TAB = { id: 'advledger', icon: 'fa-piggy-bank', title: 'অগ্রিম খাতা (ফেরত হিসাব)' };
 const EXPENSE_TAB = { id: 'expense', icon: 'fa-wallet', title: 'মাসিক খরচ হিসাব' };
 function renderCalcTabs() {
   const box = document.getElementById('calcTabs'); if (!box) return;
-  const all = CALCS.concat([EXPENSE_TAB]);
+  const all = CALCS.concat([EXPENSE_TAB, ADV_TAB]);
   const btn = c => '<button type="button" class="tab-btn' + (PREMIUM_IDS.includes(c.id) ? ' prem' : '') + (c.id === _calcActive ? ' active' : '') + '" onclick="calcSelect(\'' + c.id + '\')">' + (PREMIUM_IDS.includes(c.id) ? '<i class="fas fa-crown"></i> ' : '') + '<i class="fas ' + c.icon + '"></i> ' + c.title + '</button>';
   const prem = PREMIUM_IDS.map(id => all.find(c => c.id === id)).filter(Boolean);
   const rest = all.filter(c => !PREMIUM_IDS.includes(c.id));
@@ -2696,10 +2697,11 @@ function renderCalcTabs() {
 }
 function calcSelect(id) {
   _calcActive = id; renderCalcTabs();
-  const isExp = id === 'expense';
-  ['calcGrid', 'memoHistoryCard'].forEach(x => { const e = document.getElementById(x); if (e) e.style.display = isExp ? 'none' : (x === 'calcGrid' ? 'grid' : ''); });
-  const ep = document.getElementById('expensePanel'); if (ep) ep.style.display = isExp ? 'block' : 'none';
-  if (isExp) { expInit(); return; }
+  const panels = { expense: 'expensePanel', advledger: 'advPanel' }, isPanel = !!panels[id];
+  ['calcGrid', 'memoHistoryCard'].forEach(x => { const e = document.getElementById(x); if (e) e.style.display = isPanel ? 'none' : (x === 'calcGrid' ? 'grid' : ''); });
+  Object.keys(panels).forEach(k => { const e = document.getElementById(panels[k]); if (e) e.style.display = (k === id) ? 'block' : 'none'; });
+  if (id === 'expense') { expInit(); return; }
+  if (id === 'advledger') { advInit(); return; }
   const c = CALCS.find(x => x.id === id), box = document.getElementById('calcForm'); if (!c || !box) return;
   box.innerHTML = '<div class="form-grid">' + c.fields.map(fl => {
     const val = fl.v == null ? '' : fl.v;
@@ -2782,6 +2784,220 @@ function memoFromCalc() {
 }
 
 
+
+// ── অগ্রিম খাতা: ফেরত হিসাব + নিজের ব্যক্তিগত খরচ ট্র্যাক (Firebase: "advLedger") ──
+// entries  = ক্ষতি/জরিমানা (অগ্রিম থেকে কাটা যাবে)
+// personal = আমি নিজের কাজে অগ্রিম থেকে যা খরচ করেছি (কাটা যাবে না, পুরোটাই ফেরত দিতে হবে)
+let _advTid = '', _advDoc = null, _advBuilt = false, _advEdit = { entries: null, personal: null, repaid: null }, _advDirty = false;
+const _advAll = () => DB.get('advLedger');
+const _advTenant = () => (tenants || []).find(t => t.id === _advTid);
+const ADV_LISTS = {
+  entries:  { suf: 'F', title: 'ক্ষতি / জরিমানা (অগ্রিম থেকে কাটা যাবে)', icon: 'fa-hammer', ph: 'বিবরণ (কী ক্ষতি / কীসের জরিমানা)', color: '#dc2626', empty: 'কোনো ক্ষতি / জরিমানা নেই' },
+  repaid:   { suf: 'R', title: 'ব্যক্তিগত খরচ ফেরত দিলাম (অগ্রিমে জমা হবে)', icon: 'fa-undo-alt', ph: 'নোট (যেমন: নগদ ফেরত জমা)', color: '#16a34a', empty: 'এখনো কিছু ফেরত দেওয়া হয়নি' },
+  personal: { suf: 'P', title: 'আমার ব্যক্তিগত খরচ (অগ্রিম থেকে — পুরোটা ফেরত দিতে হবে)', icon: 'fa-user-lock', ph: 'কীসের জন্য খরচ করলাম', color: '#b45309', empty: 'কোনো ব্যক্তিগত খরচ ট্র্যাক করা নেই' }
+};
+function _advDefault(tn) { return { tenantId: tn.id, ded: tn.monthlyDeduction || tn.deduction || 0, months: _tmonths(tn), due: null, entries: [], personal: [], repaid: [] }; }
+function advInit() {
+  const box = document.getElementById('advPanel'); if (!box) return;
+  if (!_advBuilt) {
+    box.innerHTML =
+      '<div class="stat-card" style="padding:20px;margin-bottom:20px;"><h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-crown" style="color:#f59e0b;"></i> <i class="fas fa-piggy-bank" style="color:var(--accent);"></i> অগ্রিম খাতা (ফেরত হিসাব)</h3>' +
+      '<p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">বকেয়া, কর্তন ও ক্ষতির জরিমানা অগ্রিম থেকে কাটা যাবে। নিজের কাজে অগ্রিম থেকে খরচ করলে সেটা আলাদা ট্র্যাক হবে — ওটা কাটা যাবে না, পুরোটাই ফেরত দিতে হবে। সবকিছু Firebase-এ সেভ থাকে।</p>' +
+      '<select id="advTenant" class="form-input form-select" onchange="advSelect(this.value)"></select></div>' +
+      '<div id="advBody"></div>' +
+      '<div class="stat-card" style="padding:20px;margin-top:20px;"><h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-cloud" style="color:var(--accent);"></i> সংরক্ষিত অগ্রিম খাতা (Firebase)</h3><div id="advList"></div></div>';
+    _advBuilt = true;
+  }
+  const sel = document.getElementById('advTenant');
+  sel.innerHTML = '<option value="">-- ভাড়াটিয়া নির্বাচন করুন --</option>' + (tenants || []).map(t => '<option value="' + t.id + '"' + (t.id === _advTid ? ' selected' : '') + '>' + _esc(t.name) + ' - ' + _esc(t.shop) + (t.archived ? ' (আর্কাইভ)' : '') + '</option>').join('');
+  advRender(); advRenderList();
+  FDB.getAll('advLedger').then(() => { if (_advTid && !_advDirty) advSelect(_advTid); advRenderList(); }).catch(() => {});
+  FDB.getAll('payments').then(r => { if (r && r.length) { payments = r; advSummary(); } }).catch(() => {});
+}
+function advSelect(tid) {
+  _advTid = tid; _advEdit = { entries: null, personal: null, repaid: null }; _advDirty = false;
+  const tn = _advTenant();
+  if (!tn) { _advDoc = null; advRender(); return; }
+  const saved = _advAll().find(x => x.id === tid), cp = a => (a || []).map(e => Object.assign({}, e));
+  _advDoc = saved ? { tenantId: tid, ded: saved.ded || 0, months: saved.months || 0, due: saved.due == null ? null : saved.due, entries: cp(saved.entries), personal: cp(saved.personal), repaid: cp(saved.repaid) } : _advDefault(tn);
+  const sel = document.getElementById('advTenant'); if (sel) sel.value = tid;
+  advRender();
+}
+function advAutoDue() { return (payments || []).filter(p => p.tenantId === _advTid).reduce((a, p) => a + _n(p.due), 0); }
+function advCalcNums() {
+  const tn = _advTenant(), d = _advDoc; if (!tn || !d) return null;
+  const adv = _n(tn.advance), deducted = Math.min(adv, _n(d.ded) * Math.max(0, Math.floor(_n(d.months))));
+  const due = d.due == null || d.due === '' ? advAutoDue() : _n(d.due);
+  const sum = a => a.reduce((x, e) => x + _n(e.amount), 0);
+  const fine = sum(d.entries), personal = sum(d.personal), repaid = sum(d.repaid || []), personalDue = Math.max(0, personal - repaid);
+  const refund = adv - deducted - due - fine;                 // ভাড়াটিয়াকে মোট যা ফেরত দিতে হবে
+  const inHand = adv - personal + repaid;                              // অগ্রিমের টাকা থেকে নিজের খরচ বাদে যা হাতে আছে
+  const shortfall = Math.max(0, refund - inHand);             // ফেরত দিতে নিজের তহবিল থেকে যা যোগ করতে হবে
+  return { adv, deducted, due, fine, personal, repaid, personalDue, refund, inHand, shortfall };
+}
+function _advListCard(key) {
+  const L = ADV_LISTS[key], x = L.suf;
+  return '<div class="stat-card" style="padding:20px;' + (key === 'personal' ? 'border:1.5px dashed #f59e0b;' : '') + '"><h3 style="font-weight:700;margin-bottom:12px;font-size:.92rem;"><i class="fas ' + L.icon + '" style="color:' + L.color + ';"></i> ' + L.title + '</h3>' +
+    '<div id="advBanner' + x + '" style="display:none;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:8px;padding:8px 12px;font-size:.82rem;margin-bottom:8px;"></div>' +
+    '<div style="display:grid;gap:6px;margin-bottom:10px;"><input id="advDate' + x + '" class="form-input" placeholder="তারিখ বাছুন" value="' + isoLocal(new Date()) + '"><input id="advDet' + x + '" class="form-input" placeholder="' + L.ph + '"><input id="advAmt' + x + '" class="form-input" type="number" step="any" inputmode="decimal" placeholder="টাকা ৳">' +
+    '<button type="button" id="advBtn' + x + '" class="btn btn-primary" onclick="advEntrySave(\'' + key + '\')" style="justify-content:center;"><i class="fas fa-plus"></i> যোগ করুন</button></div>' +
+    (key === 'repaid' ? '<button type="button" class="btn btn-outline btn-sm" onclick="advRepayAll()" style="margin-bottom:10px;width:100%;justify-content:center;border-color:#16a34a;color:#166534;"><i class="fas fa-check-double"></i> বাকি সবটুকু ফেরত দিলাম</button>' : '') +
+    '<div id="advEntries' + x + '"></div></div>';
+}
+function advRender() {
+  const box = document.getElementById('advBody'); if (!box) return;
+  const tn = _advTenant();
+  if (!tn || !_advDoc) { box.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px;font-size:.86rem;">উপর থেকে ভাড়াটিয়া বাছুন</p>'; return; }
+  const d = _advDoc;
+  box.innerHTML = '<div id="advSummary" style="margin-bottom:16px;"></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;align-items:start;">' +
+    '<div class="stat-card" style="padding:20px;"><h3 style="font-weight:700;margin-bottom:12px;font-size:.95rem;"><i class="fas fa-sliders-h" style="color:var(--accent);"></i> কর্তন ও বকেয়া</h3><div class="form-grid">' +
+    '<div class="form-group"><label class="form-label">মোট অগ্রিম (৳)</label><input class="form-input" value="' + _n(tn.advance) + '" disabled></div>' +
+    '<div class="form-group"><label class="form-label">মাসিক কর্তন (৳)</label><input class="form-input" type="number" step="any" value="' + _esc(d.ded) + '" oninput="advParam(\'ded\',this.value)" onchange="advPersist()"></div>' +
+    '<div class="form-group"><label class="form-label">কত মাস কর্তন</label><input class="form-input" type="number" value="' + _esc(d.months) + '" oninput="advParam(\'months\',this.value)" onchange="advPersist()"></div>' +
+    '<div class="form-group"><label class="form-label">বকেয়া ভাড়া (৳) — ফাঁকা = অটো</label><input class="form-input" type="number" step="any" placeholder="অটো: ' + money(advAutoDue()) + '" value="' + (d.due == null ? '' : _esc(d.due)) + '" oninput="advParam(\'due\',this.value)" onchange="advPersist()"></div></div></div>' +
+    _advListCard('entries') + _advListCard('personal') + _advListCard('repaid') + '</div>' +
+    '<div class="stat-card" style="padding:16px 20px;margin-top:16px;"><div style="font-weight:700;font-size:.9rem;margin-bottom:10px;"><i class="fas fa-folder" style="color:#f59e0b;"></i> মেমো — ' + _esc(tn.name) + ' এর ফোল্ডারে সেভ হবে</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;">' +
+    '<div style="border:1px solid var(--border);border-radius:10px;padding:10px;"><div style="font-weight:600;font-size:.84rem;margin-bottom:6px;">ভাড়াটিয়ার ফেরত মেমো</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button type="button" class="btn btn-outline btn-sm" onclick="advView(\'refund\')"><i class="fas fa-eye"></i> দেখুন / প্রিন্ট</button><button type="button" class="btn btn-primary btn-sm" onclick="advSaveMemo(\'refund\')"><i class="fas fa-folder-plus"></i> সেভ করুন</button></div></div>' +
+    '<div style="border:1px solid #f59e0b;border-radius:10px;padding:10px;"><div style="font-weight:600;font-size:.84rem;margin-bottom:6px;">ব্যক্তিগত খরচের মেমো <span style="font-weight:400;color:var(--text-muted);">(কর্তন/বকেয়া ছাড়া)</span></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button type="button" class="btn btn-outline btn-sm" onclick="advView(\'personal\')"><i class="fas fa-eye"></i> দেখুন / প্রিন্ট</button><button type="button" class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="advSaveMemo(\'personal\')"><i class="fas fa-folder-plus"></i> সেভ করুন</button></div></div>' +
+    '<div style="border:1px solid var(--border);border-radius:10px;padding:10px;"><div style="font-weight:600;font-size:.84rem;margin-bottom:6px;">আমার সম্পূর্ণ খাতা</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button type="button" class="btn btn-outline btn-sm" onclick="advView(\'full\')"><i class="fas fa-eye"></i> দেখুন</button><button type="button" class="btn btn-outline btn-sm" onclick="advSaveMemo(\'full\')"><i class="fas fa-folder-plus"></i> সেভ করুন</button></div></div></div>' +
+    '<button type="button" class="btn btn-ghost btn-sm" onclick="advPersist(true)" style="margin-top:10px;"><i class="fas fa-cloud-upload-alt"></i> হিসাব সেভ করুন</button></div>';
+  if (typeof flatpickr !== 'undefined') ['F', 'P', 'R'].forEach(x => { const el = document.getElementById('advDate' + x); if (el) flatpickr(el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: false, disableMobile: true, defaultDate: el.value || null }); });
+  advSummary(); advRenderEntries('entries'); advRenderEntries('personal'); advRenderEntries('repaid');
+}
+function advSummary() {
+  const el = document.getElementById('advSummary'), n = advCalcNums(); if (!el || !n) return;
+  const tn = _advTenant(), box = (l, v, c) => '<div style="flex:1;min-width:120px;"><div style="font-size:.72rem;opacity:.85;">' + l + '</div><div style="font-size:1.2rem;font-weight:800;color:' + (c || '#fff') + ';">' + v + '</div></div>';
+  el.innerHTML = '<div style="background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;border-radius:14px;padding:16px 18px;">' +
+    '<div style="font-weight:700;font-size:.9rem;margin-bottom:10px;">' + _esc(tn.name) + ' — ' + _esc(tn.shop) + '</div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;">' + box('মোট অগ্রিম', money(n.adv)) + box('মাসিক কর্তন বাবদ', '−' + money(n.deducted), '#fecaca') + box('বকেয়া ভাড়া', '−' + money(n.due), '#fecaca') + box('ক্ষতি / জরিমানা', '−' + money(n.fine), '#fecaca') + '</div>' +
+    '<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.3);display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:600;">' + (n.refund >= 0 ? 'ভাড়াটিয়াকে ফেরত দিতে হবে' : 'ভাড়াটিয়ার কাছে পাওনা') + '</span><b style="font-size:1.5rem;">' + money(Math.abs(n.refund)) + '</b></div></div>' +
+    '<div style="margin-top:10px;background:linear-gradient(135deg,#78350f,#d97706);color:#fff;border-radius:14px;padding:14px 18px;">' +
+    '<div style="font-weight:700;font-size:.85rem;margin-bottom:8px;"><i class="fas fa-user-lock"></i> আমার ব্যক্তিগত খরচ ট্র্যাক (পুরোটাই ফেরত দিতে হবে)</div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;">' + box('অগ্রিম থেকে খরচ করেছি', money(n.personal)) + box('ফেরত দিয়েছি (অগ্রিমে জমা)', money(n.repaid), '#bbf7d0') + box('এখনো ফেরত বাকি', money(n.personalDue), n.personalDue > 0 ? '#fecaca' : '#bbf7d0') + '</div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;">' + box('অগ্রিম থেকে হাতে আছে', money(n.inHand), n.inHand < 0 ? '#fecaca' : '#fff') + box('ঘাটতি (নিজের তহবিল থেকে দিতে হবে)', money(n.shortfall), n.shortfall > 0 ? '#fecaca' : '#bbf7d0') + '</div></div>';
+}
+function advParam(k, v) { if (!_advDoc) return; _advDoc[k] = (k === 'due' && v === '') ? null : v; _advDirty = true; advSummary(); }
+function advRenderEntries(key) {
+  const x = ADV_LISTS[key].suf, box = document.getElementById('advEntries' + x); if (!box || !_advDoc) return;
+  const list = _advDoc[key].slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  box.innerHTML = (list.length ? list.map(e => '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border);">' +
+    '<div style="min-width:0;"><div style="font-weight:600;font-size:.86rem;">' + _esc(e.details || 'খরচ') + ' — <span style="color:' + ADV_LISTS[key].color + ';">' + money(e.amount) + '</span></div><div style="font-size:.74rem;color:var(--text-muted);">' + fmtDate(e.date) + '</div></div>' +
+    '<div style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="advEntryEdit(\'' + key + '\',\'' + e.id + '\')"><i class="fas fa-edit"></i></button><button class="btn btn-danger btn-sm" onclick="advEntryDel(\'' + key + '\',\'' + e.id + '\')"><i class="fas fa-trash"></i></button></div></div>').join('')
+    : '<p style="text-align:center;color:var(--text-muted);padding:10px;font-size:.82rem;">' + ADV_LISTS[key].empty + '</p>') +
+    (list.length ? '<div style="display:flex;justify-content:space-between;padding:9px 0 0;border-top:2px solid var(--border);font-weight:800;"><span>মোট</span><span>' + money(list.reduce((a, e) => a + _n(e.amount), 0)) + '</span></div>' : '');
+}
+async function advEntrySave(key) {
+  if (!_advDoc) return;
+  const x = ADV_LISTS[key].suf, g = id => (document.getElementById(id + x) || {}).value || '', amt = _n(g('advAmt'));
+  if (!(amt > 0)) { showToast('টাকার পরিমাণ দিন', 'error'); return; }
+  const rec = { date: g('advDate') || isoLocal(new Date()), details: g('advDet').trim(), amount: _r2(amt) };
+  _advDoc[key] = _advDoc[key] || [];
+  if (_advEdit[key]) { const e = _advDoc[key].find(v => v.id === _advEdit[key]); if (e) Object.assign(e, rec); }
+  else _advDoc[key].push(Object.assign({ id: 'AE' + Date.now() + Math.floor(Math.random() * 1000) }, rec));
+  _advEdit[key] = null;
+  await advPersist();
+  advRender();
+}
+async function advRepayAll() {
+  const n = advCalcNums(); if (!_advDoc || !n) return;
+  if (!(n.personalDue > 0)) { showToast('ফেরত দেওয়ার মতো কিছু বাকি নেই', 'error'); return; }
+  if (!confirm(money(n.personalDue) + ' ফেরত দেওয়া হিসেবে অগ্রিমে জমা করবেন?')) return;
+  _advDoc.repaid = _advDoc.repaid || [];
+  _advDoc.repaid.push({ id: 'AE' + Date.now() + Math.floor(Math.random() * 1000), date: isoLocal(new Date()), details: 'ব্যক্তিগত খরচ ফেরত', amount: _r2(n.personalDue) });
+  await advPersist(); advRender();
+}
+function advEntryEdit(key, id) {
+  const e = _advDoc && _advDoc[key].find(v => v.id === id); if (!e) return;
+  const x = ADV_LISTS[key].suf; _advEdit[key] = id;
+  const set = (i, v) => { const el = document.getElementById(i + x); if (el) el.value = v; };
+  set('advDate', e.date); set('advDet', e.details); set('advAmt', e.amount);
+  const b = document.getElementById('advBanner' + x); if (b) { b.style.display = 'block'; b.textContent = 'সম্পাদনা চলছে — পরিবর্তন করে "আপডেট" চাপুন'; }
+  const ab = document.getElementById('advBtn' + x); if (ab) ab.innerHTML = '<i class="fas fa-sync-alt"></i> আপডেট';
+}
+async function advEntryDel(key, id) {
+  if (!_advDoc || !confirm('এই এন্ট্রিটি মুছে ফেলবেন?')) return;
+  _advDoc[key] = _advDoc[key].filter(e => e.id !== id); _advEdit[key] = null;
+  await advPersist(); advRender();
+}
+async function advPersist(toast) {
+  if (!_advDoc || !_advTid) return;
+  const d = _advDoc, n = advCalcNums(), cl = a => a.map(e => ({ id: e.id, date: e.date, details: e.details || '', amount: _n(e.amount) }));
+  const ok = await FDB.save('advLedger', _advTid, { tenantId: _advTid, ded: _n(d.ded), months: Math.max(0, Math.floor(_n(d.months))), due: d.due == null ? null : _n(d.due), entries: cl(d.entries), personal: cl(d.personal), repaid: cl(d.repaid || []),
+    refund: n ? _r2(n.refund) : 0, personalTotal: n ? _r2(n.personal) : 0, personalDue: n ? _r2(n.personalDue) : 0, updatedAt: new Date().toISOString() });
+  _advDirty = false;
+  showToast(ok ? 'অগ্রিম খাতা Firebase-এ সেভ হয়েছে ✅' : 'শুধু এই ডিভাইসে সেভ হয়েছে (ইন্টারনেট/লগইন দেখুন)', ok ? 'success' : 'error');
+  advRenderList();
+}
+function advRenderList() {
+  const box = document.getElementById('advList'); if (!box) return;
+  const list = _advAll().filter(x => (tenants || []).some(t => t.id === x.id));
+  box.innerHTML = list.length ? list.map(x => {
+    const tn = tenants.find(t => t.id === x.id), r = _n(x.refund), pt = x.personalDue != null ? _n(x.personalDue) : _n(x.personalTotal);
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--border);">' +
+      '<div style="min-width:180px;"><div style="font-weight:700;">' + _esc(tn.name) + ' <span style="font-size:.74rem;font-weight:400;color:var(--text-muted);">' + _esc(tn.shop) + '</span></div>' +
+      '<div style="font-size:.78rem;color:var(--text-muted);">' + (r >= 0 ? 'ফেরত দিতে হবে ' : 'পাওনা ') + '<b style="color:' + (r >= 0 ? '#16a34a' : '#dc2626') + ';">' + money(Math.abs(r)) + '</b>' + (pt ? ' • ব্যক্তিগত খরচ বাকি <b style="color:#b45309;">' + money(pt) + '</b>' : '') + '</div></div>' +
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" onclick="advOpen(\'' + x.id + '\',true)"><i class="fas fa-eye"></i> View</button>' +
+      '<button class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="advOpen(\'' + x.id + '\')"><i class="fas fa-edit"></i> Update</button>' +
+      '<button class="btn btn-danger btn-sm" onclick="advDeleteLedger(\'' + x.id + '\')"><i class="fas fa-trash"></i> Delete</button></div>' +
+      '<div style="width:100%;">' + memoFolderHtml({ key: x.id, label: tn.name + ' — মেমো ফোল্ডার', list: DB.get('memos').filter(m => m.tenantId === x.id).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')) }) + '</div></div>';
+  }).join('') : '<p style="text-align:center;color:var(--text-muted);padding:16px;font-size:.84rem;">এখনো কোনো অগ্রিম খাতা সেভ করা নেই</p>';
+}
+function advOpen(tid, view) {
+  advSelect(tid);
+  if (view) { advView('refund'); return; }
+  const b = document.getElementById('advBody'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function advDeleteLedger(tid) {
+  const tn = (tenants || []).find(t => t.id === tid);
+  if (!confirm((tn ? tn.name + ' এর ' : '') + 'অগ্রিম খাতা মুছে ফেলবেন?')) return;
+  await FDB.delete('advLedger', tid);
+  if (_advTid === tid) { _advDoc = null; _advTid = ''; const sel = document.getElementById('advTenant'); if (sel) sel.value = ''; advRender(); }
+  advRenderList(); showToast('অগ্রিম খাতা মুছে ফেলা হয়েছে', 'error');
+}
+function advMemoObj(kind) {
+  const tn = _advTenant(), n = advCalcNums(); if (!tn || !n) return null;
+  const d = _advDoc, mcount = Math.max(0, Math.floor(_n(d.months)));
+  const sorted = a => a.slice().sort((x, y) => String(x.date).localeCompare(String(y.date)));
+  const listTable = (title, arr, total) => ({ title, cols: ['#', 'তারিখ', 'বিবরণ', 'টাকা'], num: [3], rows: sorted(arr).map((e, i) => [i + 1, fmtDate(e.date), e.details || 'খরচ', money(e.amount)]), foot: ['', '', 'মোট', money(total)] });
+  let tables = [], title, total;
+  if (kind === 'personal') {
+    title = 'ব্যক্তিগত খরচের মেমো'; total = n.personal;
+    tables = [{ title: 'অগ্রিম জমা ছিল: ' + money(n.adv), cols: ['বিবরণ', 'টাকা'], num: [1],
+      rows: [['অগ্রিম থেকে ব্যক্তিগত খরচ (মোট)', '−' + money(n.personal)]].concat(n.repaid ? [['খরচের টাকা ফেরত দেওয়া হয়েছে (অগ্রিমে জমা)', '+' + money(n.repaid)]] : []),
+      foot: ['অগ্রিম অবশিষ্ট আছে', money(n.inHand)] }];
+    tables.push(listTable('অগ্রিম থেকে খরচের তালিকা (কখন, কীসের জন্য)', d.personal, n.personal));
+    if ((d.repaid || []).length) tables.push(listTable('ফেরত দেওয়ার তালিকা (অগ্রিমে জমা)', d.repaid, n.repaid));
+  } else {
+    title = kind === 'full' ? 'অগ্রিম খাতা (ব্যক্তিগতসহ)' : 'অগ্রিম ফেরত হিসাব'; total = Math.abs(n.refund);
+    tables = [{ title: 'অগ্রিম ফেরত হিসাব', cols: ['বিবরণ', 'টাকা'], num: [1],
+      rows: [['মোট অগ্রিম', money(n.adv)], ['মাসিক কর্তন বাবদ (' + money(_n(d.ded)) + ' × ' + mcount + ' মাস)', '−' + money(n.deducted)], ['বকেয়া ভাড়া', '−' + money(n.due)], ['ক্ষতি / জরিমানা', '−' + money(n.fine)]],
+      foot: [n.refund >= 0 ? 'ফেরত দিতে হবে' : 'ভাড়াটিয়ার কাছে পাওনা', money(Math.abs(n.refund))] }];
+    if (d.entries.length) tables.push(listTable('ক্ষতি / জরিমানার তালিকা', d.entries, n.fine));
+    if (kind === 'full') {
+      if (d.personal.length) tables.push(listTable('ব্যক্তিগত খরচ (অগ্রিম থেকে — পুরোটা ফেরত দিতে হবে)', d.personal, n.personal));
+      tables.push({ title: 'ব্যক্তিগত খরচের সারাংশ', cols: ['বিবরণ', 'টাকা'], num: [1],
+        rows: [['মোট অগ্রিম', money(n.adv)], ['অগ্রিম থেকে ব্যক্তিগত খরচ', '−' + money(n.personal)], ['ফেরত দিয়েছি (অগ্রিমে জমা)', '+' + money(n.repaid)], ['অগ্রিম থেকে হাতে আছে', money(n.inHand)], ['ভাড়াটিয়াকে ফেরত দিতে হবে', money(Math.abs(n.refund))]],
+        foot: ['ঘাটতি (নিজের তহবিল থেকে দিতে হবে)', money(n.shortfall)] });
+    }
+  }
+  return { id: 'ADV-' + kind + '-' + tn.id, no: 'ADV-' + (tn.shop || tn.id), title, date: isoLocal(new Date()), tenantId: tn.id, name: tn.name, shop: tn.shop || '', mobile: tn.mobile || '', items: [], tables, collector: '', note: '', noSum: true,
+    sub: _r2(total), disc: 0, total: _r2(total), paid: 0, due: _r2(total), kind: 'adv-' + kind };
+}
+function advView(kind) { const m = advMemoObj(kind === true ? 'full' : (kind || 'refund')); if (m) memoShow(m); }
+async function advSaveMemo(kind) {
+  if (!_advDoc) return;
+  if (kind === 'personal' && !_advDoc.personal.length) { showToast('আগে ব্যক্তিগত খরচ যোগ করুন', 'error'); return; }
+  const m = advMemoObj(kind); if (!m) return;
+  m.id = 'MEMO' + Date.now(); m.no = nextMemoNo(); m.createdAt = new Date().toISOString();
+  const ok = await FDB.save('memos', m.id, Object.assign({}, m, { tables: [], tablesJson: JSON.stringify(m.tables) }));
+  addActivity('মেমো সংরক্ষণ: ' + m.no + ' — ' + m.name + ' (' + m.title + ')', 'file-invoice', '#16a34a');
+  showToast(ok ? m.name + ' এর ফোল্ডারে মেমো সেভ হয়েছে ✅' : 'শুধু এই ডিভাইসে সেভ হয়েছে (ইন্টারনেট/লগইন দেখুন)', ok ? 'success' : 'error');
+  _memoFolderOpen[m.tenantId] = true;
+  memoRenderHistory(); memoShow(m);
+}
+
 // ── monthly expense calculator (Firebase: "expenses") ─────────
 const EXP_CATS = ['বিদ্যুৎ বিল', 'পানির বিল', 'পরিষ্কার-পরিচ্ছন্নতা', 'জেনারেটর / লিফট', 'মেরামত ও রক্ষণাবেক্ষণ', 'কর্মচারী বেতন', 'নিরাপত্তা', 'ট্যাক্স / খাজনা', 'অন্যান্য'];
 let _expDraft = [], _expEditIds = null, _expYM = '', _expFormYM = '', _expBuilt = false;
@@ -2836,11 +3052,12 @@ function expRent(ym) {
 }
 function expLive() {
   const el = document.getElementById('expLive'); if (!el) return;
-  const [y, mo] = _expYM.split('-'), rent = expRent(_expYM), spent = _expMonthList().reduce((a, e) => a + _n(e.amount), 0), bal = rent - spent;
-  const pend = (_expEditIds || _expFormYM !== _expYM) ? 0 : _expDraft.reduce((a, r) => a + _n(r.amount), 0);
+  const ym = _expFormYM || _expYM, [y, mo] = ym.split('-'), rent = expRent(ym);
+  const spent = _expAll().filter(e => _expKey(e) === ym).reduce((a, e) => a + _n(e.amount), 0), bal = rent - spent;
+  const pend = _expEditIds ? 0 : _expDraft.reduce((a, r) => a + _n(r.amount), 0);
   const box = (l, v, c) => '<div style="flex:1;min-width:130px;"><div style="font-size:.74rem;opacity:.85;">' + l + '</div><div style="font-size:1.35rem;font-weight:800;color:' + (c || '#fff') + ';">' + v + '</div></div>';
   el.innerHTML = '<div style="background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;border-radius:14px;padding:16px 18px;">' +
-    '<div style="font-weight:700;font-size:.9rem;margin-bottom:10px;"><i class="fas fa-circle" style="color:#4ade80;font-size:.5rem;vertical-align:middle;"></i> লাইভ — ' + BN_MONTHS[+mo - 1] + ' ' + y + '</div>' +
+    '<div style="font-weight:700;font-size:.9rem;margin-bottom:10px;"><i class="fas fa-circle" style="color:#4ade80;font-size:.5rem;vertical-align:middle;"></i> লাইভ — ' + BN_MONTHS[+mo - 1] + ' ' + y + ' এর টাকা থেকে খরচ</div>' +
     '<div style="display:flex;gap:14px;flex-wrap:wrap;">' + box(BN_MONTHS[+mo - 1] + ' মোট ভাড়া', money(rent)) + box('মোট খরচ', '−' + money(spent), '#fecaca') + box('অবশিষ্ট ব্যালেন্স', money(bal), bal < 0 ? '#fecaca' : '#bbf7d0') + '</div>' +
     (pend > 0 ? '<div style="margin-top:10px;font-size:.78rem;opacity:.9;">ফর্মের অসেভড খরচ ' + money(pend) + ' সেভ হলে ব্যালেন্স হবে <b>' + money(bal - pend) + '</b></div>' : '') + '</div>';
 }
@@ -2889,7 +3106,6 @@ async function expSave() {
   }
   if (editing) for (const id of _expEditIds.filter(id => !rows.some(r => r.id === id))) await FDB.delete('expenses', id);
   showToast(ok ? (editing ? 'হিসাব আপডেট হয়েছে ✅' : rows.length + ' টি খরচ সেভ হয়েছে ✅') : 'শুধু এই ডিভাইসে সেভ হয়েছে', ok ? 'success' : 'error');
-  _expYM = _expFormYM;
   expDraftReset(); expInit();
 }
 function _expEditMode(ids, text) {
@@ -3129,7 +3345,7 @@ async function memoSave(store) {
   };
   if (editing) m.updatedAt = new Date().toISOString();
   if (store || editing) {
-    const ok = await FDB.save('memos', m.id, m);
+    const ok = await FDB.save('memos', m.id, Object.assign({}, m, { tables: [], tablesJson: JSON.stringify(m.tables || []) }));   // Firestore nested array support kore na
     addActivity((editing ? 'মেমো আপডেট: ' : 'মেমো সংরক্ষণ: ') + m.no + (m.name ? ' — ' + m.name : ''), 'file-invoice', '#16a34a');
     showToast(ok ? (editing ? 'মেমো আপডেট হয়েছে ✅' : 'মেমো Firebase-এ সংরক্ষিত হয়েছে ✅') : 'শুধু এই ডিভাইসে সেভ হয়েছে (ইন্টারনেট/লগইন দেখুন)', ok ? 'success' : 'error');
     memoRenderHistory();
@@ -3139,13 +3355,18 @@ async function memoSave(store) {
     memoShow(m);   // tatkhanik: store hobe na
   }
 }
+function memoNorm(m) {
+  if (!m) return m;
+  if (m.tablesJson) { try { m = Object.assign({}, m, { tables: JSON.parse(m.tablesJson) }); } catch (e) {} }
+  return m;
+}
 function memoShow(m) {
   currentMemo = m;
   document.getElementById('memoSlipContent').innerHTML = '<div class="slip-container" id="printMemoArea" style="max-width:640px;margin:0 auto;">' + memoHtml(m) + '</div>';
   openModal('memoModal');
 }
 function memoEdit(id) {
-  const m = DB.get('memos').find(x => x.id === id); if (!m) return;
+  const m = memoNorm(DB.get('memos').find(x => x.id === id)); if (!m) return;
   memoReset();
   _memoEditId = id; _memoEditMeta = { no: m.no, createdAt: m.createdAt };
   _memoItems = (m.items || []).map(it => ({ desc: it.desc, qty: it.qty, rate: it.rate })); if (!_memoItems.length) _memoItems.push({ desc: '', qty: 1, rate: '' });
@@ -3166,20 +3387,46 @@ function memoEditUI(on, no) {
   sh('memoBtnMake', !on); sh('memoBtnStore', !on); sh('memoBtnUpdate', on); sh('memoBtnCancel', on);
 }
 function memoOpen(id) {
-  const m = DB.get('memos').find(x => x.id === id); if (!m) return;
+  const m = memoNorm(DB.get('memos').find(x => x.id === id)); if (!m) return;
   memoShow(m);
+}
+let _memoFolderOpen = {};
+const _fKey = k => String(k).replace(/'/g, '%27');
+function memoRowHtml(m) {
+  return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0 9px 6px;border-top:1px solid var(--border);">' +
+    '<div style="min-width:0;"><div style="font-weight:600;font-size:.84rem;">' + _esc(m.title || 'মেমো') + ' <span style="font-weight:400;color:var(--text-muted);font-size:.74rem;">' + _esc(m.no) + '</span></div>' +
+    '<div style="font-size:.74rem;color:var(--text-muted);">' + fmtDate(m.date) + ' • <b>' + money(m.total) + '</b></div></div>' +
+    '<div style="display:flex;gap:4px;flex-shrink:0;"><button class="btn btn-primary btn-sm" onclick="memoOpen(\'' + m.id + '\')" title="দেখুন"><i class="fas fa-eye"></i></button>' +
+    '<button class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="memoEdit(\'' + m.id + '\')" title="Update"><i class="fas fa-edit"></i> Update</button>' +
+    '<button class="btn btn-danger btn-sm" onclick="memoDelete(\'' + m.id + '\')" title="Delete"><i class="fas fa-trash"></i> Delete</button></div></div>';
+}
+function memoFolders() {
+  const g = {};
+  DB.get('memos').forEach(m => {
+    const tn = m.tenantId && (tenants || []).find(t => t.id === m.tenantId);
+    const key = m.tenantId || (m.name ? '__n_' + encodeURIComponent(m.name) : '__none');
+    const label = tn ? tn.name + (tn.shop ? ' — ' + tn.shop : '') : (m.name || 'ভাড়াটিয়া ছাড়া (অন্যান্য)');
+    (g[key] = g[key] || { key, label, list: [] }).list.push(m);
+  });
+  const out = Object.values(g);
+  out.forEach(f => f.list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')));
+  return out.sort((a, b) => (a.key === '__none') - (b.key === '__none') || a.label.localeCompare(b.label, 'bn'));
+}
+function memoFolderToggle(key) { _memoFolderOpen[key] = !_memoFolderOpen[key]; memoRenderHistory(); }
+function memoFolderHtml(f) {
+  const open = !!_memoFolderOpen[f.key];
+  return '<div style="border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;">' +
+    '<button type="button" onclick="memoFolderToggle(\'' + _fKey(f.key) + '\')" style="width:100%;display:flex;align-items:center;gap:10px;padding:11px 14px;background:' + (open ? 'rgba(22,163,74,.08)' : 'transparent') + ';border:none;cursor:pointer;color:var(--text-primary);font-family:inherit;text-align:left;">' +
+    '<i class="fas ' + (open ? 'fa-folder-open' : 'fa-folder') + '" style="color:#f59e0b;font-size:1.1rem;"></i><span style="flex:1;font-weight:700;font-size:.9rem;">' + _esc(f.label) + '</span>' +
+    '<span style="font-size:.74rem;color:var(--text-muted);">' + f.list.length + ' টি মেমো</span><i class="fas fa-chevron-' + (open ? 'up' : 'down') + '" style="font-size:.7rem;color:var(--text-muted);"></i></button>' +
+    (open ? '<div style="padding:0 12px 6px;">' + f.list.map(memoRowHtml).join('') + '</div>' : '') + '</div>';
 }
 function memoRenderHistory() {
   const box = document.getElementById('memoHistory'); if (!box) return;
-  const list = DB.get('memos').slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 30);
-  box.innerHTML = list.length ? list.map(m =>
-    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border);">' +
-    '<div style="min-width:0;"><div style="font-weight:600;font-size:.86rem;">' + _esc(m.no) + ' • ' + _esc(m.name || 'নাম নেই') + '</div>' +
-    '<div style="font-size:.74rem;color:var(--text-muted);">' + fmtDate(m.date) + ' • ' + _esc(m.title) + ' • <b>' + money(m.total) + '</b></div></div>' +
-    '<div style="display:flex;gap:4px;"><button class="btn btn-primary btn-sm" onclick="memoOpen(\'' + m.id + '\')" title="দেখুন"><i class="fas fa-eye"></i></button>' +
-    '<button class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="memoEdit(\'' + m.id + '\')" title="Update"><i class="fas fa-edit"></i> Update</button>' +
-    '<button class="btn btn-danger btn-sm" onclick="memoDelete(\'' + m.id + '\')" title="Delete"><i class="fas fa-trash"></i> Delete</button></div></div>').join('')
-    : '<p style="text-align:center;color:var(--text-muted);padding:16px;font-size:.84rem;">কোনো সংরক্ষিত মেমো নেই। মেমো বানানোর সময় "সেভ করে মেমো তৈরি করুন" চাপলে এখানে থাকবে।</p>';
+  const fs = memoFolders();
+  box.innerHTML = fs.length ? fs.map(memoFolderHtml).join('')
+    : '<p style="text-align:center;color:var(--text-muted);padding:16px;font-size:.84rem;">কোনো সংরক্ষিত মেমো নেই। মেমো বানানোর সময় "সেভ করে মেমো তৈরি করুন" চাপলে ভাড়াটিয়ার নামের ফোল্ডারে থাকবে।</p>';
+  if (typeof advRenderList === 'function') advRenderList();
 }
 async function memoDelete(id) {
   if (!confirm('এই মেমো মুছে ফেলতে চান?')) return;
