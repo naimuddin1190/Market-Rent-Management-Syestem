@@ -115,6 +115,8 @@
   var OFFICE_WA = '8801729723910';
   var $ = function(id){ return document.getElementById(id); };
   var NS = 'http://www.w3.org/2000/svg';
+  var CAL_SVG = '<svg viewBox="0 0 24 24"><path d="M7 2v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7zm-2 8h14v9H5v-9z"/></svg>';
+  var SEAL_SVG = '<svg viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-4zm-1.2 15.2-3.5-3.5 1.4-1.4 2.1 2.1 5-5 1.4 1.4-6.4 6.4z"/></svg>';
 
   function fmtDate(v){
     if(!v) return '-';
@@ -166,6 +168,18 @@
     return act;
   }
 
+  function sealBox(r){
+    var seal = el('div','seal');
+    seal.innerHTML = SEAL_SVG;
+    var t = el('div');
+    var b = el('b','', 'অফিসিয়াল ডিজিটাল রেকর্ড থেকে যাচাইকৃত');
+    t.appendChild(b);
+    t.appendChild(document.createElement('br'));
+    t.appendChild(document.createTextNode('যাচাইয়ের সময়: '+fmtDateTime(new Date())+'  •  Ref: '+(r.token||'').slice(0,8).toUpperCase()));
+    seal.appendChild(t);
+    return seal;
+  }
+
   function renderInvalid(msg){
     var box = el('div');
     var st = el('div','state bad pop');
@@ -206,7 +220,7 @@
       st.appendChild(el('div','sub','এই রসিদে কোনো পরিশোধ নেই।'));
     }
     var pill = el('div','month-pill');
-    pill.innerHTML = '<svg viewBox="0 0 24 24"><path d="M7 2v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7zm-2 8h14v9H5v-9z"/></svg>';
+    pill.innerHTML = CAL_SVG;
     pill.appendChild(document.createTextNode('ভাড়ার মাস: '+(r.month||'-')+' '+(r.year||'')));
     st.appendChild(pill);
     box.appendChild(st);
@@ -229,16 +243,49 @@
     });
     box.appendChild(dl);
 
-    var seal = el('div','seal');
-    seal.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V5l-9-4zm-1.2 15.2-3.5-3.5 1.4-1.4 2.1 2.1 5-5 1.4 1.4-6.4 6.4z"/></svg>';
-    var t = el('div');
-    var b = el('b','', 'অফিসিয়াল ডিজিটাল রেকর্ড থেকে যাচাইকৃত');
-    t.appendChild(b);
-    t.appendChild(document.createElement('br'));
-    t.appendChild(document.createTextNode('যাচাইয়ের সময়: '+fmtDateTime(new Date())+'  •  Ref: '+(r.token||'').slice(0,8).toUpperCase()));
-    seal.appendChild(t);
-    box.appendChild(seal);
+    box.appendChild(sealBox(r));
+    box.appendChild(contactActions());
+    show(box);
+  }
 
+  // ---- অগ্রিম মেমো (হিসাব ও মেমো > অগ্রিম মেমো থেকে তৈরি) ----
+  function renderAdvance(r){
+    if(r.mktName) $('mktName').textContent = r.mktName;
+    if(r.mktAddress) $('mktAddr').textContent = r.mktAddress;
+
+    var box = el('div');
+    var st = el('div','state ok');
+    var ring = el('div','badge-ring pop'); ring.appendChild(svgIcon('ok'));
+    st.appendChild(ring);
+    st.appendChild(el('div','eyebrow','Advance Memo Verified'));
+    st.appendChild(el('div','title','অগ্রিম মেমো যাচাইকৃত'));
+    st.appendChild(el('div','sub','এই অগ্রিম মেমোটি মার্কেটের রেকর্ডে সঠিকভাবে সংরক্ষিত আছে।'));
+    var pill = el('div','month-pill');
+    pill.innerHTML = CAL_SVG;
+    pill.appendChild(document.createTextNode('মেমো নং: '+(r.memoNo||'-')));
+    st.appendChild(pill);
+    box.appendChild(st);
+
+    var amt = el('div','amount');
+    amt.appendChild(el('small','মোট অগ্রিম জমা / ADVANCE DEPOSITED'));
+    amt.appendChild(el('b','',money(r.received)));
+    box.appendChild(amt);
+
+    var rows = [
+      ['মেমো নং', r.memoNo||'-'],
+      ['ভাড়াটিয়া', r.tenantName||'-'],
+      ['দোকান নং', r.shop||'-'],
+      ['মোট অগ্রিম নির্ধারিত (চুক্তিপত্র অনুযায়ী)', money(r.advance)]
+    ];
+    if(r.method) rows.push(['পেমেন্ট মাধ্যম', r.method]);
+    rows.push(['মেমোর তারিখ', fmtDate(r.date)]);
+    var dl = el('dl');
+    rows.forEach(function(x){
+      var row = el('div','row'); row.appendChild(el('dt','',x[0])); row.appendChild(el('dd','',x[1])); dl.appendChild(row);
+    });
+    box.appendChild(dl);
+
+    box.appendChild(sealBox(r));
     box.appendChild(contactActions());
     show(box);
   }
@@ -270,10 +317,12 @@
     }).catch(function(e){ console.warn('scan log skipped', e && e.code); });
     // admin ke live jananor jonno (app e popup)
     r = r || {};
+    var isAdv = r.kind === 'advance';
     db.collection('scanEvents').add({
       token: token, deviceId: dev, at: ts, ua: ua,
       tenantName: String(r.tenantName || '').slice(0,80), shop: String(r.shop || '').slice(0,30),
-      month: String(r.month || '').slice(0,20), year: String(r.year || '').slice(0,6), slipNo: String(r.slipNo || '').slice(0,30)
+      month: isAdv ? 'অগ্রিম মেমো' : String(r.month || '').slice(0,20), year: isAdv ? '' : String(r.year || '').slice(0,6),
+      slipNo: String((isAdv ? r.memoNo : r.slipNo) || '').slice(0,30)
     }).catch(function(e){ console.warn('scan event skipped', e && e.code); });
   }
 
@@ -290,7 +339,7 @@
       clearTimeout(timer);
       if(!snap.exists){ renderInvalid('এই QR কোডের সাথে মিল আছে এমন কোনো রসিদ পাওয়া যায়নি।'); return; }
       var d = snap.data(); d.token = token;
-      renderReceipt(d);
+      if(d.kind === 'advance') renderAdvance(d); else renderReceipt(d);
       logScan(db, token, d);
     }).catch(function(e){
       clearTimeout(timer);
