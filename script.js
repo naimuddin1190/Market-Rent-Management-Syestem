@@ -338,7 +338,7 @@ function startAuthWatcher() {
       if (!_appStarted) { _appStarted = true; init(); }
     } else {
       // logged out: local cache e thaka private data muche din
-      ['tenants','shops','payments','activities','archivedTenants','leaveRequests','agreements','memos','expenses','advLedger'].forEach(k => localStorage.removeItem(k));
+      ['tenants','shops','payments','activities','archivedTenants','leaveRequests','agreements','memos','expenses','advLedger','agreementDocs'].forEach(k => localStorage.removeItem(k));
       Object.keys(localStorage).filter(k => k.startsWith('slips_') || k.startsWith('agHistory_') || k.startsWith('agfile_')).forEach(k => localStorage.removeItem(k));
       showLoginScreen();
     }
@@ -405,6 +405,7 @@ function loadSettingsForm() {
     const el = document.getElementById(id);
     if (el && settings[id]) el.value = settings[id];
   });
+  ownerSigUI();
   const ci = document.getElementById('collectorsInput');
   if (ci) ci.value = getCollectorList().join('\n');
 }
@@ -447,6 +448,7 @@ function showPage(pageId) {
   else if (pageId==='agreements')     renderAgreements();
   else if (pageId==='reports')        renderReports();
   else if (pageId==='calculator')     memoInit();
+  else if (pageId==='agWriter')       agwInit();
 }
 
 function toggleSidebar() {
@@ -535,6 +537,46 @@ function updateAdvanceCalc() {
 }
 
 // ============================================================
+// বার্ষিক ভাড়া বৃদ্ধি + স্বাক্ষর অন/অফ
+// ============================================================
+const _BNM = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+// চুক্তি শুরুর মাস থেকে প্রতি ১২ মাস পূর্ণ হলে একবার করে annualIncrease যোগ হয়
+function rentYearsPassed(tn, monthName, year) {
+  if (!tn || !tn.startDate) return 0;
+  const sd = new Date(tn.startDate + 'T00:00:00'); if (isNaN(sd)) return 0;
+  let mi = _BNM.indexOf(monthName), y = parseInt(year, 10);
+  const now = new Date();
+  if (mi < 0) mi = now.getMonth();
+  if (!y) y = now.getFullYear();
+  const diff = (y * 12 + mi) - (sd.getFullYear() * 12 + sd.getMonth());
+  return Math.max(0, Math.floor(diff / 12));
+}
+function effectiveRent(tn, monthName, year) {
+  const base = parseFloat(tn && tn.rent) || 0, inc = parseFloat(tn && tn.annualIncrease) || 0;
+  return base + inc * rentYearsPassed(tn, monthName, year);
+}
+function updateRentIncreaseHint() {
+  const el = document.getElementById('tIncreaseHint'); if (!el) return;
+  const inc = parseFloat((document.getElementById('tIncrease') || {}).value) || 0;
+  const rent = parseFloat((document.getElementById('tRent') || {}).value) || 0;
+  el.textContent = inc > 0 ? 'প্রতি ১২ মাস পূর্ণ হলে ভাড়া ৳' + inc.toLocaleString() + ' করে বাড়বে' + (rent ? ' (১ম বছর ৳' + rent.toLocaleString() + ' → ২য় বছর ৳' + (rent + inc).toLocaleString() + ')' : '') : '';
+}
+const sigOn = () => settings.showOwnerSig !== false;
+function ownerSigUI() {
+  const b = document.getElementById('ownerSigToggle'), h = document.getElementById('ownerSigToggleHint'); if (!b) return;
+  const on = sigOn();
+  b.className = on ? 'btn btn-primary btn-sm' : 'btn btn-gray btn-sm';
+  b.innerHTML = on ? '<i class="fas fa-toggle-on"></i> চালু' : '<i class="fas fa-toggle-off"></i> বন্ধ';
+  if (h) h.textContent = on ? 'রসিদ, মেমো ও প্রিন্টে জমিদারের স্বাক্ষর দেখাচ্ছে' : 'জমিদারের স্বাক্ষর দেখানো হচ্ছে না';
+}
+async function toggleOwnerSig() {
+  settings.showOwnerSig = !sigOn();
+  ownerSigUI();
+  await FDB.saveSettings(settings);
+  showToast(sigOn() ? 'জমিদারের স্বাক্ষর চালু হয়েছে ✅' : 'জমিদারের স্বাক্ষর বন্ধ হয়েছে');
+}
+
+// ============================================================
 // TENANT CRUD
 // ============================================================
 
@@ -556,12 +598,13 @@ function shrinkDataUrl(dataUrl, maxSize, quality) {
 function openTenantModal(id) {
   id = id || null;
   const nidIcon = '<span style="text-align:center;"><i class="fas fa-id-card" style="display:block;font-size:1.4rem;margin-bottom:4px;color:var(--accent);"></i>আপলোড করুন</span>';
-  ['tenantId','tName','tMobile','tNid','tDeduction','tRent','tAdvance','tAddress','tNotes','nidFrontData','nidBackData'].forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
+  ['tenantId','tName','tMobile','tNid','tDeduction','tRent','tIncrease','tAdvance','tAddress','tNotes','nidFrontData','nidBackData'].forEach(f => { const el=document.getElementById(f); if(el) el.value=''; });
   document.getElementById('nidFrontPreview').innerHTML = nidIcon;
   document.getElementById('nidBackPreview').innerHTML  = nidIcon;
   document.getElementById('photoPreview').innerHTML    = '<i class="fas fa-camera" style="color:var(--accent);font-size:1.2rem;"></i><span style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;">ছবি আপলোড</span>';
   document.getElementById('photoPreview').dataset.photo = '';
   document.getElementById('advanceCalc').style.display = 'none';
+  updateRentIncreaseHint();
   populateShopSelect();
   const now = new Date();
   document.getElementById('tStartDate').value = isoLocal(now);
@@ -580,6 +623,7 @@ function openTenantModal(id) {
     document.getElementById('tFloor').value      = tn.floor;
     document.getElementById('tRent').value       = tn.rent;
     document.getElementById('tAdvance').value    = tn.advance||'';
+    document.getElementById('tIncrease').value   = tn.annualIncrease||'';
     document.getElementById('tAddress').value    = tn.address||'';
     document.getElementById('tNotes').value      = tn.notes||'';
     document.getElementById('tStartDate').value  = tn.startDate||'';
@@ -595,7 +639,7 @@ function openTenantModal(id) {
       document.getElementById('photoPreview').innerHTML = '<img src="'+tn.photo+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
       document.getElementById('photoPreview').dataset.photo = tn.photo;
     }
-    updateAdvanceCalc();
+    updateAdvanceCalc(); updateRentIncreaseHint();
   } else {
     document.getElementById('tenantModalTitle').textContent = 'নতুন ভাড়াটিয়া যোগ করুন';
   }
@@ -683,6 +727,7 @@ async function saveTenant() {
     shop,             floor:    document.getElementById('tFloor').value,
     rent:             parseFloat(rent),
     advance:          parseFloat(document.getElementById('tAdvance').value)||0,
+    annualIncrease:   parseFloat((document.getElementById('tIncrease')||{}).value)||0,
     monthlyDeduction: parseFloat((document.getElementById('tDeduction')||{}).value)||0,
     deduction:        parseFloat((document.getElementById('tDeduction')||{}).value)||0, // backward compat
     address:  document.getElementById('tAddress').value,
@@ -767,7 +812,7 @@ function viewTenant(id) {
     '<p style="color:var(--text-muted);font-size:0.83rem;margin-bottom:10px;">'+tn.mobile+(tn.nid?' • NID: '+tn.nid:'')+'</p>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.83rem;">'+
     '<div><b>দোকান:</b> '+tn.shop+'</div><div><b>ফ্লোর:</b> '+tn.floor+'</div>'+
-    '<div><b>মাসিক ভাড়া:</b> ৳'+(tn.rent||0).toLocaleString()+'</div>'+
+    '<div><b>মাসিক ভাড়া:</b> ৳'+effectiveRent(tn,_BNM[new Date().getMonth()],new Date().getFullYear()).toLocaleString()+(tn.annualIncrease>0?'<div style="font-size:.72rem;color:var(--text-muted);">নির্ধারিত ৳'+(tn.rent||0).toLocaleString()+' • প্রতি বছরে +৳'+tn.annualIncrease.toLocaleString()+'</div>':'')+'</div>'+
     '<div><b>অগ্রিম:</b> ৳'+(tn.advance||0).toLocaleString()+'</div>'+
     '<div><b>মাসিক কর্তন:</b> ৳'+deduction.toLocaleString()+'</div>'+
     '<div><b>অবশিষ্ট অগ্রিম:</b> <span style="color:var(--accent);font-weight:700;">৳'+remaining.toLocaleString()+'</span></div>'+
@@ -894,7 +939,7 @@ function renderTenants() {
       '<td>'+ph+'</td>'+
       '<td><div style="font-weight:600;">'+tn.name+'</div><div style="font-size:0.75rem;color:var(--text-muted);">'+tn.mobile+'</div></td>'+
       '<td><span style="font-weight:600;">'+tn.shop+'</span><br><span style="font-size:0.75rem;color:var(--text-muted);">'+tn.floor+'</span></td>'+
-      '<td><span style="font-weight:700;color:var(--accent);">৳'+(tn.rent||0).toLocaleString()+'</span></td>'+
+      '<td><span style="font-weight:700;color:var(--accent);">৳'+effectiveRent(tn,_BNM[new Date().getMonth()],new Date().getFullYear()).toLocaleString()+'</span>'+(tn.annualIncrease>0?'<div style="font-size:.68rem;color:var(--text-muted);">নির্ধারিত ৳'+(tn.rent||0).toLocaleString()+' • বছরে +৳'+tn.annualIncrease.toLocaleString()+'</div>':'')+'</td>'+
       '<td><div style="font-size:0.78rem;">অগ্রিম: ৳'+(tn.advance||0).toLocaleString()+'</div>'+
       (deduction(tn)>0?'<div style="font-size:0.75rem;color:var(--text-muted);">অবশিষ্ট: <span style="color:var(--accent);font-weight:600;">৳'+rem.toLocaleString()+'</span></div>':'')+'</td>'+
       '<td><span class="badge '+st.cls+'">'+st.label+'</span></td>'+
@@ -1066,7 +1111,12 @@ function fillRentInfo() {
   const tn  = tenants.find(x=>x.id===tid);
   if (!tn) return;
   document.getElementById('rShop').value        = tn.shop;
-  document.getElementById('rMonthlyRent').value = tn.rent;
+  const mName = document.getElementById('rMonth').value, yr = new Date().getFullYear();
+  const yrs = rentYearsPassed(tn, mName, yr), rent = effectiveRent(tn, mName, yr);
+  document.getElementById('rMonthlyRent').value = rent;
+  let note = document.getElementById('rRentNote');
+  if (!note) { note = document.createElement('div'); note.id = 'rRentNote'; note.style.cssText = 'font-size:.72rem;color:#92400e;margin-top:3px;'; document.getElementById('rMonthlyRent').insertAdjacentElement('afterend', note); }
+  note.textContent = yrs > 0 ? 'বর্ধিত ভাড়া: নির্ধারিত ৳' + (tn.rent||0).toLocaleString() + ' + ৳' + (tn.annualIncrease||0).toLocaleString() + ' × ' + yrs + ' বছর' : '';
   calcDue();
 }
 
@@ -1422,7 +1472,7 @@ function generateSlipCopy(p, s, copyType, qrHtml) {
     '<div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;margin-top:16px;padding-top:10px;border-top:1px dashed #86efac;">'+
     '<div style="text-align:left;font-size:0.78rem;color:#14532d;"><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>ভাড়াটিয়ার স্বাক্ষর</div></div>'+
     '<div style="text-align:center;">'+(qrHtml||'')+'</div>'+
-    '<div style="text-align:right;font-size:0.78rem;color:#14532d;display:flex;flex-direction:column;align-items:flex-end;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div></div>'+
+    (sigOn()?'<div style="text-align:right;font-size:0.78rem;color:#14532d;display:flex;flex-direction:column;align-items:flex-end;">'+ownerSig+'<div>জমিদারের স্বাক্ষর</div></div>':'<div></div>')+'</div>'+
     '<div class="slip-decorative" style="margin-top:10px;"></div>'+
     '</div>';
 }
@@ -3212,7 +3262,7 @@ function _expPrint(title, sub, list) {
     list.map((e, i) => '<tr><td>' + (i + 1) + '</td><td>' + fmtDate(e.date) + '</td><td>' + _esc(_expText(e)) + '</td><td class="r">' + money(e.amount) + '</td></tr>').join('') +
     '</tbody><tfoot><tr><td colspan="3">মোট খরচ</td><td class="r">' + money(total) + '</td></tr></tfoot></table>' +
     '<p style="font-size:12px;margin-top:6px;">কথায় : ' + takaInWords(total) + '</p>' +
-    '<div style="display:flex;justify-content:flex-end;margin-top:40px;font-size:12px;"><div style="text-align:center;">' + (typeof ownerSignature !== 'undefined' && ownerSignature ? '<img src="' + ownerSignature + '" style="height:40px;display:block;margin:0 auto 2px;">' : '<div style="height:40px;"></div>') + '<div style="border-top:1px solid #16a34a;padding-top:3px;min-width:130px;">জমিদারের স্বাক্ষর</div></div></div>' +
+    (sigOn() ? '<div style="display:flex;justify-content:flex-end;margin-top:40px;font-size:12px;"><div style="text-align:center;">' + (typeof ownerSignature !== 'undefined' && ownerSignature ? '<img src="' + ownerSignature + '" style="height:40px;display:block;margin:0 auto 2px;">' : '<div style="height:40px;"></div>') + '<div style="border-top:1px solid #16a34a;padding-top:3px;min-width:130px;">জমিদারের স্বাক্ষর</div></div></div>' : '') +
     '</body></html>');
   win.document.close(); win.focus(); setTimeout(() => win.print(), 600);
 }
@@ -3345,7 +3395,7 @@ function memoHtml(m) {
     (m.note ? '<div style="font-size:.8rem;color:#4b5563;">মন্তব্য : <span class="slip-note">' + _esc(m.note) + '</span></div>' : '') +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:22px;padding-top:10px;border-top:1px dashed #86efac;font-size:.78rem;color:#14532d;">' +
     '<div><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>গ্রহীতার স্বাক্ষর</div></div>' +
-    '<div style="text-align:right;">' + (m.collector ? '<div style="margin-bottom:2px;">সংগ্রহকারী: <span class="slip-field">' + _esc(m.collector) + '</span></div>' : '') + sig + '<div>জমিদারের স্বাক্ষর</div></div></div>' +
+    '<div style="text-align:right;">' + (m.collector ? '<div style="margin-bottom:2px;">সংগ্রহকারী: <span class="slip-field">' + _esc(m.collector) + '</span></div>' : '') + (sigOn() ? sig + '<div>জমিদারের স্বাক্ষর</div>' : '') + '</div></div>' +
     '<div class="slip-decorative" style="margin-top:10px;"></div></div>';
 }
 
@@ -4058,6 +4108,310 @@ async function memoWhatsApp() {
 
   window.__AdvMemo = { calc: amCalc, tables: amTables };   // টেস্টের জন্য
 })();
+
+// ============================================================
+// চুক্তিপত্র লিখুন — লিগ্যাল (A4-Legal) ফরম্যাটের ভাড়া চুক্তিপত্র, Firebase: "agreementDocs"
+// ============================================================
+const AGW_CSS = `
+  .agw-txt{font-family:'Noto Serif Bengali','Noto Sans Bengali',serif;font-size:15px;line-height:1.85;color:#000;text-align:justify;}
+  .agw-page{width:816px;height:1344px;box-sizing:border-box;position:relative;background:#fff;padding-left:72px;padding-right:72px;padding-bottom:90px;overflow:hidden;}
+  .agw-b{margin:0 0 12px;}
+  .agw-b p{margin:0;}
+  .agw-ph{text-align:center;font-style:italic;text-decoration:underline;font-size:14px;height:34px;line-height:34px;margin-bottom:6px;}
+  .agw-pf{position:absolute;right:72px;bottom:44px;font-style:italic;text-decoration:underline;font-size:14px;}
+  .agw-party{text-align:right;font-weight:700;text-decoration:underline;margin-top:2px;}
+  .agw-line{border-top:1px solid #000;width:230px;margin-left:auto;text-align:center;padding-top:2px;font-size:14px;}
+`;
+(function injectAgwCss() {
+  if (document.getElementById('agwCss')) return;
+  const st = document.createElement('style'); st.id = 'agwCss'; st.textContent = AGW_CSS; document.head.appendChild(st);
+})();
+
+const AGW_TERMS = [
+  'তফসিলোক্ত দোকান গৃহের অগ্রিম বা জামানত হিসাবে এককালীন {{advance}} টাকা ২য় পক্ষ, ১ম পক্ষ/জমিদারকে প্রদান করিলেন। অত্র চুক্তিপত্রের মেয়াদ {{startDate}} ইং তারিখ হইতে শুরু হইয়া আগামী {{endDate}} ইং পর্যন্ত {{years}} বছরের জন্য বলবৎ থাকিবে। {{years}} বছর মেয়াদ শেষে ২য় পক্ষ ভাড়াটিয়া তপশীলোক্ত দোকানগৃহ খালি করিয়া সাবেক অবস্থায় ১ম পক্ষ জমিদারকে বুঝাইয়া দিবে। উক্ত ক্ষেত্রে ১ম পক্ষ জমিদারগণ অগ্রিম বাবদ গৃহীত কর্তনবাদে হিসাব নিকাশে যাহা পাওনা থাকে তাহা ২য় পক্ষ ভাড়াটিয়াকে ফেরত প্রদান করিবেন। {{years}} বছর মেয়াদ শেষে উক্ত চুক্তিপত্রটি বাতিল বলিয়া গণ্য হইবে।',
+  'তফসিলোক্ত দোকান গৃহের মাসিক মূল ভাড়া {{rent}} টাকা নির্ধারণ করা হইলো। ২য় পক্ষ ভাড়াটিয়া প্রতি চলিত মাসের ভাড়া পরবর্তী মাসের ১ হইতে {{dueDay}} তারিখের মধ্যে ১ম পক্ষ/জমিদার বরাবর {{netRent}} টাকা নগদে প্রদান করিবেন এবং {{deduction}} টাকা অগ্রিম বা জামানত হইতে কর্তন যাইবে। প্রতি নতুন বছর ({{increaseMonth}}) নির্ধারিত মূল ভাড়ার সাথে {{increase}} টাকা ভাড়া বৃদ্ধি করা হইবে। কোন মাসের ভাড়া বকেয়া রাখা যাইবে না। ভাড়া বকেয়া রাখিলে ২য় পক্ষ ডিফল্টার হিসাবে গণ্য হইবে। এক্ষেত্রে পর পর {{notice}} মাস ভাড়া বকেয়া রাখিলে ২য় পক্ষ ভাড়াটিয়া উচ্ছেদযোগ্য হইবে। সেইক্ষেত্রে অত্র চুক্তিনামার কার্যকারিতা অবসান হইবে।',
+  '২য় পক্ষ/ভাড়াটিয়া উক্ত দোকান গৃহটি "{{business}}" হিসেবে ব্যবহার করিবেন। তবে কোন অবৈধ বা দেশ ও সমাজ বিরোধ ব্যবসা করিতে পারিবেন না। করিলে তজ্জন্য ২য় পক্ষ/ভাড়াটিয়াই এককভাবে দায়ী থাকিবেন।',
+  '২য় পক্ষ/ভাড়াটিয়া তফসিলোক্ত দোকান গৃহে নির্ধারিত "{{business}}" করিতে অপারগ হইলে ১ম পক্ষ/জমিদারকে {{notice}} মাস পূর্বে জানাইবেন এবং সেই ক্ষেত্রে তাহার অগ্রীম/ জামানতকৃত টাকা হইতে ১ম পক্ষের যাবতীয় পাওনাদী পরিশোধ করিয়া অবশিষ্ট টাকা দোকান বুঝাইয়া দিয়া ফেরৎ নিতে পারিবেন।',
+  'প্রথম পক্ষ জমিদার যে কোন প্রয়োজনে {{notice}} মাস পূর্বে লিখিত বা মৌখিক নোটিশ প্রদানের মাধ্যমে দ্বিতীয় পক্ষ ভাড়াটিয়াকে উচ্ছেদ করার অধিকার সংরক্ষন করেন। এক্ষেত্রে দ্বিতীয় পক্ষ ভাড়াটিয়ার জামানতের টাকা কর্তনের পর যদি অবশিষ্ট থাকে তাহা প্রথম পক্ষ জমিদার ফেরত প্রদান করিবেন।',
+  '২য় পক্ষ/ভাড়াটিয়া তফসিলোক্ত দোকান গৃহের ক্ষতি হয় এমন কোনরূপ পরিবর্তন ও পরিমার্জন করিতে পারিবেন না। {{premise}} গৃহে কোন প্রকার কাজ করিতে হইলে তাহা ১ম পক্ষ জমিদারকে অবগত করিয়া অনুমতি সাপেক্ষে কাজ সম্পন্ন করিতে হইবে।',
+  '২য় পক্ষ/ভাড়াটিয়া তফসিলোক্ত {{premise}} গৃহটিতে অথবা তাহার কোন অংশে কোনরূপ উপ- ভাড়াটিয়া অথবা সাবলেট দিতে পারিবেন না। যদি এই ধরণের কোন ঘটনা ঘটে সেই ক্ষেত্রে ২য় পক্ষ আইনত উচ্ছেদ হইবেন।',
+  '২য় পক্ষ/ভাড়াটিয়া তফসিলোক্ত {{premise}} গৃহে নির্ধারিত "{{business}}" ব্যতীত অন্য কোন ব্যবসা করিতে পারিবেন না এবং তফসিলোক্ত {{premise}} গৃহের বিপরীতে কোন অর্থলগ্নীকারী ব্যক্তি প্রতিষ্ঠান ও ব্যাংক হইতে কোন ঋণ গ্রহণ করিতে পারিবেন না। করিলে তার জন্য উক্ত অর্থলগ্নীকারী ব্যক্তি, প্রতিষ্ঠান ও ব্যাংক এবং ২য় পক্ষ/ভাড়াটিয়া দায়ী থাকিবেন। ১ম পক্ষ/জমিদার কিংবা তফসিলোক্ত দোকান গৃহ কোনরূপ দায়ী থাকিবেন না।',
+  '২য়পক্ষ/ ভাড়াটিয়া তফসিলোক্ত {{premise}} গৃহের মাসিক বিদ্যুৎ বিল নিয়মিতভাবে পরিশোধ করিতে বাধ্য থাকিবেন। পরিশোধিত বিলের কপি ১ম পক্ষ/জমিদার বরাবর প্রদান করিতে হইবে।',
+  '২য় পক্ষ/ভাড়াটিয়া ভাড়া নেওয়া {{premise}} গৃহে টেলিফোন বা ফ্যাক্স সংযোগ নিলে তাহা সম্পূর্ণ ২য় পক্ষের নিজ দায়িত্বে থাকিবে। তাহাতে ১ম পক্ষ কোন ভাবে দায়ী থাকিবেন না।',
+  '২য় পক্ষ/ভাড়াটিয়া ব্যবসা সংক্রান্ত যাবতীয় কর, ট্যাক্স, ভ্যাট এবং ট্রেড লাইসেন্স ফি ইত্যাদি পরিশোধ করিবেন।',
+  '১ম পক্ষ/জমিদার {{premise}} গৃহের সব ধরনের মেরামত কাজ করে ২য় পক্ষ ভাড়াটিয়াকে {{premise}} গৃহখানা বুঝাইয়া দিল। পরবর্তীতে অর্থাৎ চুক্তিপত্রের মেয়াদের শেষ তারিখ পর্যন্ত {{premise}} গৃহের কোন কিছুর মেরামত করার প্রয়োজন হইলে ২য় পক্ষ ভাড়াটিয়া নিজ খরচ ও নিজ দায়িত্বে মেরামত করে নিবে। কোন ভাবেই ১ম পক্ষ/জমিদার নিকট মেরামত সংক্রান্ত বিষয়ে আবদার করতি পারিবে না।',
+  'অত্র দোকান চুক্তির {{years}} বছর মেয়াদকালে মধ্যে দোকানের কোন প্রকার ক্ষতি সাধিত হইলে {{premise}} ছাড়ার সময় দ্বিতীয় পক্ষ ভাড়াটিয়া নিজ খরচে তাহা মেরামত করিয়া দিতে বাধ্য থাকিবে। যদি মেরামত করে না দেয় তবে অগ্রিম বা জামানতের টাকা হইতে প্রথমপক্ষ জমিদার কর্তন করিয়া অবশিষ্ট টাকা ফেরত প্রদান করিবেন।'
+];
+const AGW_DEFAULTS = () => Object.assign({
+  docTitle: 'অস্থায়ী দোকান ভাড়ার চুক্তিপত্র',
+  landlordText: '১। মোঃ নাদিম মজুমদার, ২। মোঃ নাঈম উদ্দিন মজুমদার, উভয় পিতা- মরহুম মোহাম্মদ জয়নাল আবেদীন, ঠিকানা- ১ নং চাঁন ভবন, হাজী ফজু মিয়া রোড, ডাকঘর- পাহাড়তলী, থানা- পাহাড়তলী, জেলা- চট্টগ্রাম, জাতীয়তা- বাংলাদেশী।',
+  preamble: 'পরম করুণাময় মহান আল্লাহ তায়ালার নামে আরম্ভ করিতেছি যে, নিম্নে তফসিলে বর্ণিত দোকান গৃহটি অত্র চুক্তিপত্রের ১ম পক্ষ/জমিদারের খরিদা খাস দখলীয় সম্পত্তি হয়। ১ম পক্ষ তফসিলে বর্ণিত {{premise}} গৃহটি মাসিক ভাড়ায় লাগিয়তের ঘোষণা করিলে ২য় পক্ষ তাহাতে ভাড়া লইতে সম্মত হওয়ায় উভয় পক্ষ আলাপ আলোচনাক্রমে নিম্নে বর্ণিত শর্তাবলীর ভিত্তিতে অত্র ভাড়া চুক্তিপত্র সম্পাদন করিলাম।',
+  terms: AGW_TERMS.slice(),
+  closing: 'এই করারে, স্বেচ্ছায়, স্বজ্ঞানে, সুস্থ মস্তিষ্কে কাহারো বিনা প্ররোচনায় উপস্থিত স্বাক্ষীগণের সম্মুখে উপরে উল্লেখিত চুক্তিপত্রের শর্তাবলী নিজে পড়িয়া, পড়াইয়া ও ইহার সম্যক মর্ম আবগত হইয়া ভবিষ্যতের ভালমন্দ ভাবিয়া অত্র মাসিক দোকান ভাড়ার চুক্তিপত্রের শিরভাগে আমাদের নিজ নিজ স্বাক্ষর করিয়া চুক্তিপত্রটি সম্পাদন করিয়া দিলাম। তারিখ: {{signDate}} ইংরেজি।',
+  schedule: 'জেলা- চট্টগ্রাম, থানা- পাহাড়তলী, মৌজা- পশ্চিম নাছিরাবাদ, হোল্ডিং নং : ২৪৯৩/২৭৯১, ডি.টি রোড, বার কোয়ার্টার, হাজী চাঁন মিয়া মার্কেটের পিছনে অবস্থিত অবশিষ্ট দোকান গৃহটি মাসিক ভাড়ায় লাগিয়তকৃত।',
+  business: 'সিএনজি গ্যারেজ', premise: 'গ্যারেজ', dueDay: 5, notice: 3, years: 2, increaseMonth: 'জানুয়ারিতে', topMargin: 30
+}, (settings && settings.agwDefaults) || {});
+
+let _agw = null, _agwBuilt = false, _agwEndManual = false, _agwTimer = null;
+function agwBlank() {
+  const t = isoLocal(new Date());
+  const base = AGW_DEFAULTS(); base.terms = (base.terms || []).slice();
+  return Object.assign(base, { id: '', tenantId: '', name: '', father: '', address: '', nid: '', mobile: '', shop: '', advance: '', rent: '', deduction: '', increase: '', startDate: t, endDate: '', signDate: t });
+}
+const agwBn = n => _bnDigits(String(n));
+const agwNum = n => _bnDigits(Number(n).toLocaleString('en-IN'));
+const agwWords = n => takaInWords(n).replace(/ টাকা মাত্র$/, '').replace(/লাখ/g, 'লক্ষ');
+const agwMoney = n => agwNum(Math.round(n)) + '/= (' + agwWords(n) + ')';
+const agwCount = (n, pad) => (pad ? agwBn(String(n).padStart(2, '0')) : agwBn(n)) + ' (' + (BN_UNDER_100[n] || agwBn(n)) + ')';
+const agwDate = v => v ? agwBn(fmtDate(v)) : '...........';
+function agwEnd(d) {
+  const s = new Date(d.startDate + 'T00:00:00'), y = Math.max(0, Math.floor(_n(d.years)));
+  if (isNaN(s) || !y) return '';
+  return isoLocal(new Date(s.getFullYear() + y, s.getMonth(), s.getDate() - 1));
+}
+function agwVars(d) {
+  const rent = _n(d.rent), ded = _n(d.deduction), adv = _n(d.advance), inc = _n(d.increase);
+  const b = x => '<b>' + _esc(x) + '</b>';
+  return {
+    advance: agwMoney(adv), rent: agwMoney(rent), netRent: agwMoney(Math.max(0, rent - ded)), deduction: agwMoney(ded), increase: agwMoney(inc),
+    startDate: agwDate(d.startDate), endDate: agwDate(d.endDate), signDate: agwDate(d.signDate),
+    years: agwCount(Math.floor(_n(d.years)) || 0), notice: agwCount(Math.floor(_n(d.notice)) || 0, true), dueDay: agwBn(Math.floor(_n(d.dueDay)) || 5),
+    business: b(d.business || ''), premise: b(d.premise || ''), increaseMonth: _esc(d.increaseMonth || ''), shop: _esc(d.shop || ''), name: _esc(d.name || '')
+  };
+}
+function agwFill(text, v) {
+  return _esc(text || '').replace(/\{\{(\w+)\}\}/g, (m, k) => v[k] != null ? v[k] : m).replace(/\n/g, '<br>');
+}
+function agwBlocks(d) {
+  const v = agwVars(d), P = t => '<p>' + t + '</p>';
+  const tenantP = '<b>' + _esc(d.name || '..........') + '</b>' + (d.father ? ', পিতা- ' + _esc(d.father) : '') + (d.address ? ', ঠিকানাঃ ' + _esc(d.address) : '') + ', জাতীয়তা- বাংলাদেশী' + (d.nid ? '। জাতীয় পরিচয়পত্র নং- ' + agwBn(_esc(d.nid)) : '') + '।';
+  const out = [];
+  out.push('<div style="text-align:center;font-style:italic;font-size:13px;">বিসমিল্লাহির রাহমানির রাহিম</div><div style="text-align:center;font-size:25px;font-weight:800;text-decoration:underline;margin:4px 0 6px;">' + _esc(d.docTitle) + '</div>');
+  out.push(P(agwFill(d.landlordText, v)) + '<div class="agw-party">======= ১মপক্ষ/জমিদার।</div>');
+  out.push(P(tenantP) + '<div class="agw-party">======= ২য়পক্ষ/ ভাড়াটিয়া।</div>');
+  out.push(P(agwFill(d.preamble, v)));
+  out.push('<div style="text-align:center;font-size:25px;font-weight:800;text-decoration:underline;">শর্ত সমূহ</div>');
+  (d.terms || []).forEach((t, i) => out.push('<div style="display:flex;gap:6px;"><span style="min-width:30px;">' + agwBn(i + 1) + '।</span><span style="flex:1;">' + agwFill(t, v) + '</span></div>'));
+  out.push(P(agwFill(d.closing, v)));
+  out.push('<div style="text-align:center;font-size:19px;font-weight:800;text-decoration:underline;margin-bottom:4px;">‘দোকানের তফসিল’</div>' + P(agwFill(d.schedule, v)));
+  out.push('<div><div style="text-decoration:underline;margin-bottom:10px;">সাক্ষীগণের স্বাক্ষর, নাম ও ঠিকানাঃ</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;height:50px;"><span>১।</span><div class="agw-line">১ম পক্ষ/ জমিদারের স্বাক্ষর</div></div>' +
+    '<div style="height:44px;"><span>২।</span></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;height:50px;"><span>৩।</span><div class="agw-line">২য় পক্ষ/ভাড়াটিয়ার স্বাক্ষর</div></div></div>');
+  return out;
+}
+// পাতা ভাগ: মাপ নিয়ে ১ম পাতা, ২য় পাতা… (চলমান পাতা-N সহ)
+function agwPages(d) {
+  const topPx = Math.round((_n(d.topMargin) || 0) * 3.7795), blocks = agwBlocks(d);
+  const m = document.createElement('div');
+  m.className = 'agw-txt'; m.style.cssText = 'position:absolute;left:-99999px;top:0;width:672px;';
+  m.innerHTML = blocks.map(b => '<div class="agw-b">' + b + '</div>').join('');
+  document.body.appendChild(m);
+  const hs = [...m.children].map(c => c.offsetHeight + 12);
+  document.body.removeChild(m);
+  const pages = [[]]; let used = 0;
+  const avail = i => 1344 - topPx - 90 - (i > 0 ? 40 : 0);
+  blocks.forEach((b, i) => {
+    let p = pages.length - 1;
+    if (used + hs[i] > avail(p) && pages[p].length) { pages.push([]); p++; used = 0; }
+    pages[p].push(b); used += hs[i];
+  });
+  return pages.map((bl, i) =>
+    '<div class="agw-page agw-txt" style="padding-top:' + topPx + 'px;">' + (i > 0 ? '<div class="agw-ph">পাতা-' + agwBn(i + 1) + '</div>' : '') +
+    bl.map(b => '<div class="agw-b">' + b + '</div>').join('') +
+    (i < pages.length - 1 ? '<div class="agw-pf">চলমান পাতা-' + agwBn(i + 2) + '</div>' : '') + '</div>');
+}
+function agwPrintHtml(d) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + _esc((d.name || 'ভাড়াটিয়া') + ' - চুক্তিপত্র') + '</title>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Bengali:wght@400;600;700;800&family=Noto+Sans+Bengali:wght@400;700&display=swap" rel="stylesheet">' +
+    '<style>@page{size:8.5in 14in;margin:0}html,body{margin:0;padding:0;background:#fff}' + AGW_CSS + '.agw-page{page-break-after:always;break-after:page;}.agw-page:last-child{page-break-after:auto;break-after:auto}</style></head><body>' +
+    agwPages(d).join('') +
+    '<scr' + 'ipt>(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){window.print();},500);});</scr' + 'ipt></body></html>';
+}
+
+// ── UI ──
+function agwInit() {
+  const root = document.getElementById('agwRoot'); if (!root) return;
+  if (!_agw) _agw = agwBlank();
+  if (!_agwBuilt) { agwBuild(root); _agwBuilt = true; }
+  agwFillForm(); agwPreview(); agwList();
+  FDB.getAll('agreementDocs').then(() => agwList()).catch(() => {});
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => agwPreview());
+}
+function agwBuild(root) {
+  const inp = (k, label, extra, full) => '<div class="form-group"' + (full ? ' style="grid-column:1/-1;"' : '') + '><label class="form-label">' + label + '</label><input class="form-input" data-k="' + k + '" oninput="agwIn(this)" ' + (extra || '') + '></div>';
+  const ta = (k, label, rows) => '<div class="form-group" style="grid-column:1/-1;"><label class="form-label">' + label + '</label><textarea class="form-input" rows="' + (rows || 3) + '" data-k="' + k + '" oninput="agwIn(this)"></textarea></div>';
+  const card = (title, icon, body) => '<div class="stat-card" style="padding:18px;margin-bottom:14px;"><h3 style="font-weight:700;margin-bottom:12px;font-size:.92rem;"><i class="fas ' + icon + '" style="color:var(--accent);"></i> ' + title + '</h3>' + body + '</div>';
+  root.innerHTML =
+    '<div style="display:grid;grid-template-columns:minmax(320px,1fr) minmax(320px,1fr);gap:20px;align-items:start;" id="agwGrid">' +
+    '<div>' +
+    card('ভাড়াটিয়া (২য় পক্ষ)', 'fa-user', '<div class="form-grid"><div class="form-group" style="grid-column:1/-1;"><label class="form-label">ভাড়াটিয়া বাছুন (সব তথ্য নিজে বসবে)</label><select id="agwTenant" class="form-input form-select" onchange="agwPick()"></select></div>' +
+      inp('name', 'নাম *') + inp('father', 'পিতার নাম') + inp('mobile', 'মোবাইল (WhatsApp)', 'inputmode="tel"') + inp('shop', 'দোকান নং') + inp('nid', 'জাতীয় পরিচয়পত্র নং') + inp('address', 'ঠিকানা', '', true) + '</div>') +
+    card('চুক্তির তথ্য', 'fa-file-contract', '<div class="form-grid">' + inp('docTitle', 'চুক্তিপত্রের শিরোনাম', '', true) + inp('advance', 'অগ্রিম / জামানত (৳)', 'type="number" step="any"') + inp('rent', 'মাসিক মূল ভাড়া (৳)', 'type="number" step="any"') +
+      inp('deduction', 'মাসিক কর্তন (৳)', 'type="number" step="any"') + inp('increase', 'প্রতি নতুন বছরে ভাড়া বৃদ্ধি (৳)', 'type="number" step="any"') + inp('increaseMonth', 'বৃদ্ধির মাস (লেখা)') + inp('years', 'মেয়াদ (বছর)', 'type="number"') +
+      '<div class="form-group"><label class="form-label">চুক্তি শুরু</label><input class="form-input agw-date" data-k="startDate"></div><div class="form-group"><label class="form-label">চুক্তি শেষ (অটো)</label><input class="form-input agw-date" data-k="endDate"></div><div class="form-group"><label class="form-label">স্বাক্ষরের তারিখ</label><input class="form-input agw-date" data-k="signDate"></div>' +
+      inp('dueDay', 'ভাড়া দেওয়ার শেষ তারিখ (মাসের)', 'type="number"') + inp('notice', 'নোটিশ (মাস)', 'type="number"') + inp('business', 'ব্যবসার ধরন') + inp('premise', 'দোকান/গ্যারেজ গৃহের নাম') + inp('topMargin', 'উপরের ফাঁকা (মিমি) — স্ট্যাম্প/লেটারহেডের জন্য', 'type="number"', true) + '</div>') +
+    card('১ম পক্ষ, ভূমিকা ও তফসিল', 'fa-pen-fancy', '<div class="form-grid">' + ta('landlordText', '১ম পক্ষ/জমিদারের পরিচয় (নাম, ঠিকানা)', 4) + ta('preamble', 'ভূমিকা', 5) + ta('closing', 'সমাপনী অনুচ্ছেদ', 5) + ta('schedule', 'দোকানের তফসিল (জেলা, থানা, মৌজা, হোল্ডিং, ঠিকানা)', 4) + '</div>') +
+    card('শর্তাবলী', 'fa-list-ol', '<div style="font-size:.74rem;color:var(--text-muted);margin-bottom:8px;">লিখার মধ্যে এই কোডগুলো বসানো যাবে — চুক্তির তথ্য বদলালে নিজে বদলে যাবে: <code>{{advance}} {{rent}} {{netRent}} {{deduction}} {{increase}} {{increaseMonth}} {{startDate}} {{endDate}} {{signDate}} {{years}} {{notice}} {{dueDay}} {{business}} {{premise}} {{shop}} {{name}}</code></div><div id="agwTerms"></div><button type="button" class="btn btn-outline btn-sm" onclick="agwTermAdd()"><i class="fas fa-plus"></i> নতুন শর্ত</button>') +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
+    '<button type="button" id="agwSaveBtn" class="btn btn-primary" onclick="agwSave()" style="flex:1;justify-content:center;"><i class="fas fa-cloud-upload-alt"></i> সেভ করুন</button>' +
+    '<button type="button" class="btn btn-outline" onclick="agwPrint()"><i class="fas fa-file-pdf"></i> প্রিন্ট / PDF</button>' +
+    '<button type="button" class="btn btn-sm" style="background:#25d366;color:#fff;padding:9px 14px;" onclick="agwWhatsApp()"><i class="fab fa-whatsapp"></i> WhatsApp</button>' +
+    '<button type="button" class="btn btn-ghost" onclick="agwNew()"><i class="fas fa-eraser"></i> নতুন</button></div>' +
+    '<button type="button" class="btn btn-ghost btn-sm" onclick="agwSaveDefaults()"><i class="fas fa-bookmark"></i> বর্তমান ১ম পক্ষ, ভূমিকা, শর্ত ও তফসিল ডিফল্ট হিসেবে রাখুন</button>' +
+    '</div>' +
+    '<div style="position:sticky;top:72px;"><div class="stat-card" style="padding:14px;"><div style="font-weight:700;font-size:.9rem;margin-bottom:8px;"><i class="fas fa-eye" style="color:var(--accent);"></i> লাইভ প্রিভিউ (লিগ্যাল পাতা)</div><div id="agwPreview" style="max-height:80vh;overflow:auto;background:#e5e7eb;padding:10px;border-radius:8px;"></div></div></div>' +
+    '</div>' +
+    '<div class="stat-card" style="padding:20px;margin-top:20px;"><h3 style="font-weight:700;margin-bottom:6px;font-size:.95rem;"><i class="fas fa-cloud" style="color:var(--accent);"></i> সংরক্ষিত চুক্তিপত্র (Firebase)</h3><div id="agwList"></div></div>';
+  if (window.matchMedia('(max-width: 900px)').matches) document.getElementById('agwGrid').style.gridTemplateColumns = '1fr';
+  if (typeof flatpickr !== 'undefined') root.querySelectorAll('.agw-date').forEach(el => {
+    flatpickr(el, { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: false, disableMobile: true,
+      onChange: [(sel, str) => { const k = el.dataset.k; _agw[k] = str; if (k === 'endDate') _agwEndManual = true; if (k === 'startDate') agwAutoEnd(); agwPreviewSoon(); }] });
+  });
+  window.addEventListener('resize', () => agwPreviewSoon());
+}
+function agwFillForm() {
+  const root = document.getElementById('agwRoot'); if (!root) return;
+  root.querySelectorAll('[data-k]').forEach(el => {
+    const k = el.dataset.k, v = _agw[k] == null ? '' : _agw[k];
+    if (el._flatpickr) el._flatpickr.setDate(v || null, false, 'Y-m-d'); else el.value = v;
+  });
+  const sel = document.getElementById('agwTenant');
+  if (sel) { sel.innerHTML = '<option value="">-- ভাড়াটিয়া নির্বাচন করুন (বা নিচে নিজে লিখুন) --</option>' + (tenants || []).filter(t => !t.archived).map(t => '<option value="' + t.id + '"' + (t.id === _agw.tenantId ? ' selected' : '') + '>' + _esc(t.name) + ' - ' + _esc(t.shop) + '</option>').join(''); }
+  agwTermsRender();
+  const b = document.getElementById('agwSaveBtn'); if (b) b.innerHTML = _agw.id ? '<i class="fas fa-sync-alt"></i> আপডেট করুন' : '<i class="fas fa-cloud-upload-alt"></i> সেভ করুন';
+}
+function agwIn(el) {
+  _agw[el.dataset.k] = el.value;
+  if (el.dataset.k === 'years') agwAutoEnd();
+  agwPreviewSoon();
+}
+function agwAutoEnd() {
+  if (_agwEndManual) return;
+  const e = agwEnd(_agw); _agw.endDate = e;
+  const el = document.querySelector('#agwRoot [data-k="endDate"]');
+  if (el && el._flatpickr) el._flatpickr.setDate(e || null, false, 'Y-m-d');
+}
+function agwPick() {
+  const tn = (tenants || []).find(t => t.id === document.getElementById('agwTenant').value);
+  if (!tn) { _agw.tenantId = ''; return; }
+  Object.assign(_agw, { tenantId: tn.id, name: tn.name || '', mobile: tn.mobile || '', shop: tn.shop || '', address: tn.address || _agw.address, nid: tn.nid || '', advance: tn.advance || '', rent: tn.rent || '',
+    deduction: tn.monthlyDeduction || tn.deduction || '', increase: tn.annualIncrease || '', startDate: tn.startDate || _agw.startDate });
+  _agwEndManual = false; agwAutoEnd();
+  agwFillForm(); agwPreview();
+}
+function agwTermsRender() {
+  const box = document.getElementById('agwTerms'); if (!box) return;
+  box.innerHTML = (_agw.terms || []).map((t, i) =>
+    '<div style="border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><b style="font-size:.82rem;">শর্ত ' + agwBn(i + 1) + '</b>' +
+    '<div style="display:flex;gap:4px;"><button type="button" class="btn btn-gray btn-sm" onclick="agwTermMove(' + i + ',-1)"><i class="fas fa-arrow-up"></i></button><button type="button" class="btn btn-gray btn-sm" onclick="agwTermMove(' + i + ',1)"><i class="fas fa-arrow-down"></i></button><button type="button" class="btn btn-danger btn-sm" onclick="agwTermDel(' + i + ')"><i class="fas fa-times"></i></button></div></div>' +
+    '<textarea class="form-input" rows="4" oninput="agwTermSet(' + i + ',this.value)">' + _esc(t) + '</textarea></div>').join('');
+}
+function agwTermSet(i, v) { _agw.terms[i] = v; agwPreviewSoon(); }
+function agwTermAdd() { _agw.terms.push(''); agwTermsRender(); agwPreviewSoon(); }
+function agwTermDel(i) { if (!confirm('এই শর্তটি মুছবেন?')) return; _agw.terms.splice(i, 1); agwTermsRender(); agwPreview(); }
+function agwTermMove(i, d) { const j = i + d; if (j < 0 || j >= _agw.terms.length) return; const t = _agw.terms; [t[i], t[j]] = [t[j], t[i]]; agwTermsRender(); agwPreview(); }
+function agwPreviewSoon() { clearTimeout(_agwTimer); _agwTimer = setTimeout(agwPreview, 350); }
+function agwPreview() {
+  const box = document.getElementById('agwPreview'); if (!box || !_agw) return;
+  const pages = agwPages(_agw), s = Math.min(1, Math.max(0.3, (box.clientWidth - 24) / 816));
+  box.innerHTML = pages.map(p => '<div style="width:' + (816 * s) + 'px;height:' + (1344 * s) + 'px;margin:0 auto 12px;box-shadow:0 2px 10px rgba(0,0,0,.25);"><div style="transform:scale(' + s + ');transform-origin:0 0;width:816px;height:1344px;">' + p + '</div></div>').join('') +
+    '<div style="text-align:center;font-size:.74rem;color:#6b7280;">মোট ' + agwBn(pages.length) + ' পাতা</div>';
+}
+function agwNew() { _agw = agwBlank(); _agwEndManual = false; agwAutoEnd(); agwFillForm(); agwPreview(); }
+async function agwSave() {
+  if (!(_agw.name || '').trim()) { showToast('ভাড়াটিয়ার নাম দিন', 'error'); return; }
+  const editing = !!_agw.id, id = editing ? _agw.id : 'AGD' + Date.now();
+  const rec = Object.assign({}, _agw, { id, title: _agw.name.trim() + ' — চুক্তিপত্র', terms: (_agw.terms || []).slice(), updatedAt: new Date().toISOString() });
+  if (!editing) rec.createdAt = new Date().toISOString();
+  const ok = await FDB.save('agreementDocs', id, rec);
+  _agw.id = id;
+  addActivity((editing ? 'চুক্তিপত্র আপডেট: ' : 'চুক্তিপত্র সংরক্ষণ: ') + rec.title, 'file-signature', '#16a34a');
+  showToast(ok ? (editing ? 'চুক্তিপত্র আপডেট হয়েছে ✅' : 'চুক্তিপত্র Firebase-এ সংরক্ষিত হয়েছে ✅') : 'শুধু এই ডিভাইসে সেভ হয়েছে (ইন্টারনেট/লগইন দেখুন)', ok ? 'success' : 'error');
+  agwFillForm(); agwList();
+}
+function agwSaveDefaults() {
+  settings.agwDefaults = { docTitle: _agw.docTitle, landlordText: _agw.landlordText, preamble: _agw.preamble, terms: _agw.terms.slice(), closing: _agw.closing, schedule: _agw.schedule,
+    business: _agw.business, premise: _agw.premise, dueDay: _agw.dueDay, notice: _agw.notice, years: _agw.years, increaseMonth: _agw.increaseMonth, topMargin: _agw.topMargin };
+  FDB.saveSettings(settings);
+  showToast('ডিফল্ট সেভ হয়েছে — নতুন চুক্তিপত্রে এগুলো আগে থেকে আসবে ✅');
+}
+const _agwAll = () => DB.get('agreementDocs').sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+function agwList() {
+  const box = document.getElementById('agwList'); if (!box) return;
+  const list = _agwAll();
+  box.innerHTML = list.length ? list.map(d =>
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--border);">' +
+    '<div style="min-width:200px;"><div style="font-weight:700;"><i class="fas fa-file-signature" style="color:var(--accent);margin-right:6px;"></i>' + _esc(d.title || d.name) + '</div>' +
+    '<div style="font-size:.76rem;color:var(--text-muted);">' + (d.shop ? 'দোকান ' + _esc(d.shop) + ' • ' : '') + 'মেয়াদ ' + fmtDate(d.startDate) + ' → ' + fmtDate(d.endDate) + '</div></div>' +
+    '<div style="display:flex;gap:4px;flex-wrap:wrap;">' +
+    '<button class="btn btn-primary btn-sm" onclick="agwView(\'' + d.id + '\')"><i class="fas fa-eye"></i> View</button>' +
+    '<button class="btn btn-sm" style="background:#d97706;color:#fff;" onclick="agwEdit(\'' + d.id + '\')"><i class="fas fa-edit"></i> Edit</button>' +
+    '<button class="btn btn-outline btn-sm" onclick="agwPrint(\'' + d.id + '\')"><i class="fas fa-file-pdf"></i> PDF</button>' +
+    '<button class="btn btn-sm" style="background:#25d366;color:#fff;" onclick="agwWhatsApp(\'' + d.id + '\')"><i class="fab fa-whatsapp"></i></button>' +
+    '<button class="btn btn-danger btn-sm" onclick="agwDelete(\'' + d.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>').join('')
+    : '<p style="text-align:center;color:var(--text-muted);padding:16px;font-size:.84rem;">এখনো কোনো চুক্তিপত্র সেভ করা নেই</p>';
+}
+function agwEdit(id) {
+  const d = _agwAll().find(x => x.id === id); if (!d) return;
+  _agw = Object.assign(agwBlank(), d, { terms: (d.terms || []).slice() }); _agwEndManual = true;
+  agwFillForm(); agwPreview();
+  document.getElementById('agwRoot').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function agwDelete(id) {
+  const d = _agwAll().find(x => x.id === id);
+  if (!confirm((d ? d.title : 'এই চুক্তিপত্র') + ' মুছে ফেলবেন?')) return;
+  await FDB.delete('agreementDocs', id);
+  if (_agw && _agw.id === id) { _agw.id = ''; agwFillForm(); }
+  agwList(); showToast('চুক্তিপত্র মুছে ফেলা হয়েছে', 'error');
+}
+function agwView(id) {
+  const d = _agwAll().find(x => x.id === id); if (!d) return;
+  let m = document.getElementById('agwModal');
+  if (!m) {
+    m = document.createElement('div'); m.className = 'modal-overlay'; m.id = 'agwModal';
+    m.innerHTML = '<div class="modal" style="max-width:900px;"><div class="modal-header"><h3 id="agwModalTitle"></h3><div style="display:flex;gap:6px;"><button class="btn btn-outline btn-sm" id="agwMPrint"><i class="fas fa-file-pdf"></i> প্রিন্ট / PDF</button><button class="btn btn-sm" style="background:#25d366;color:#fff;" id="agwMWa"><i class="fab fa-whatsapp"></i></button><button onclick="closeModal(\'agwModal\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button></div></div><div class="modal-body" id="agwModalBody" style="background:#e5e7eb;"></div></div>';
+    document.body.appendChild(m);
+  }
+  document.getElementById('agwModalTitle').textContent = d.title || d.name;
+  document.getElementById('agwMPrint').onclick = () => agwPrint(id);
+  document.getElementById('agwMWa').onclick = () => agwWhatsApp(id);
+  openModal('agwModal');
+  const body = document.getElementById('agwModalBody'), s = Math.min(1, Math.max(0.3, (body.clientWidth - 44) / 816));
+  body.innerHTML = agwPages(d).map(p => '<div style="width:' + (816 * s) + 'px;height:' + (1344 * s) + 'px;margin:0 auto 12px;box-shadow:0 2px 10px rgba(0,0,0,.25);"><div style="transform:scale(' + s + ');transform-origin:0 0;width:816px;height:1344px;">' + p + '</div></div>').join('');
+}
+function _agwDoc(id) { return id ? _agwAll().find(x => x.id === id) : _agw; }
+function agwPrint(id) {
+  const d = _agwDoc(id); if (!d) return;
+  const w = window.open('', '_blank', 'width=950,height=800');
+  if (!w) { showToast('Pop-up allow korun', 'warning'); return; }
+  w.document.write(agwPrintHtml(d)); w.document.close();
+}
+async function agwWhatsApp(id) {
+  const d = _agwDoc(id); if (!d) return;
+  const mob = String(d.mobile || '').replace(/[^0-9]/g, '');
+  const text = '📄 *' + (d.docTitle || 'চুক্তিপত্র') + ' - ' + (settings.mktName || '') + '*\n\nভাড়াটিয়া: ' + (d.name || '') + (d.shop ? '\nদোকান: ' + d.shop : '') + '\nমেয়াদ: ' + fmtDate(d.startDate) + ' থেকে ' + fmtDate(d.endDate) +
+    '\nমাসিক ভাড়া: ' + money(_n(d.rent)) + '\nঅগ্রিম: ' + money(_n(d.advance)) + (_n(d.increase) ? '\nপ্রতি নতুন বছরে ভাড়া বৃদ্ধি: ' + money(_n(d.increase)) : '') + '\n\nধন্যবাদ।';
+  const url = 'https://wa.me/' + (mob ? (mob.startsWith('88') ? mob : '88' + mob) : '') + '?text=' + encodeURIComponent(text);
+  try {
+    if (typeof html2canvas !== 'undefined' && navigator.share && navigator.canShare) {
+      showToast('চুক্তিপত্রের ছবি তৈরি হচ্ছে...');
+      const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-99999px;top:0;';
+      host.innerHTML = agwPages(d).join(''); document.body.appendChild(host);
+      const files = [];
+      try {
+        let i = 1;
+        for (const pg of host.querySelectorAll('.agw-page')) {
+          const c = await html2canvas(pg, { scale: 1.3, backgroundColor: '#fff', useCORS: true, logging: false });
+          const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+          files.push(new File([blob], (d.name || 'agreement') + '_page' + (i++) + '.jpg', { type: 'image/jpeg' }));
+        }
+      } finally { document.body.removeChild(host); }
+      if (navigator.canShare({ files })) { await navigator.share({ files, title: (d.name || '') + ' - চুক্তিপত্র', text }); return; }
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; console.warn(e); }
+  window.open(url, '_blank');
+}
 
 // ============================================================
 // KEYBOARD SHORTCUTS

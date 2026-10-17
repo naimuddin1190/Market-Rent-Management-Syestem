@@ -382,6 +382,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
     <a class="nav-item" onclick="showPage('rentCollection')"><i class="fas fa-money-bill-wave"></i> <span data-i18n="navRentCollection">ভাড়া সংগ্রহ</span></a>
     <a class="nav-item" onclick="showPage('paymentHistory')"><i class="fas fa-history"></i> <span data-i18n="navHistory">পেমেন্ট ইতিহাস</span></a>
     <a class="nav-item" onclick="showPage('agreements')"><i class="fas fa-file-contract"></i> <span data-i18n="navAgreements">চুক্তি ট্র্যাকার</span></a>
+    <a class="nav-item" onclick="showPage('agWriter')"><i class="fas fa-file-signature"></i> <span>চুক্তিপত্র লিখুন</span></a>
     <div class="nav-section" data-i18n="navAnalysis">বিশ্লেষণ</div>
     <a class="nav-item" onclick="showPage('reports')"><i class="fas fa-chart-bar"></i> <span data-i18n="navReports">রিপোর্ট</span></a>
     <a class="nav-item" onclick="showPage('calculator')"><i class="fas fa-calculator"></i> <span>হিসাব ও মেমো</span></a>
@@ -612,6 +613,12 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
       </div>
     </div>
 
+    <!-- ===== AGREEMENT WRITER ===== -->
+    <div id="page-agWriter" class="page fade-in">
+      <div class="section-header"><h1>চুক্তিপত্র লিখুন</h1></div>
+      <div id="agwRoot"></div>
+    </div>
+
     <!-- ===== REPORTS ===== -->
     <div id="page-reports" class="page fade-in">
       <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:20px;" data-i18n="reportsAnalysis">রিপোর্ট ও বিশ্লেষণ</h1>
@@ -691,6 +698,11 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
           <div class="form-group"><label class="form-label">হোল্ডিং নম্বর</label><input id="mktHolding" class="form-input" value="হোল্ডিং নং-২৪৯৩/২৭৯১"></div>
           <div class="form-group"><label class="form-label">সংগ্রহকারীদের তালিকা (প্রতি লাইনে একটি নাম)</label><textarea id="collectorsInput" class="form-input" rows="3" placeholder="যেমন:&#10;নাঈম&#10;রফিক"></textarea><div style="font-size:.72rem;color:var(--text-muted);margin-top:3px;">এই তালিকা রসিদ তৈরির সময় ড্রপডাউনে আসবে। শেষবার যাদের বেছেছিলেন তারা আগে থেকেই টিক থাকবে।</div></div>
           <div class="form-group"><label class="form-label">রসিদ যাচাই পেজের লিংক (QR কোডের জন্য)</label><input id="mktVerifyUrl" class="form-input" placeholder="https://haji-chan-market.web.app/verify.html"><div style="font-size:.72rem;color:var(--text-muted);margin-top:3px;">ফাঁকা রাখলে এই সাইটের <b>verify.html</b> ব্যবহার হবে। সাইট অনলাইনে (Hosting) থাকলেই ফোন থেকে স্ক্যান কাজ করবে।</div></div>
+          <div class="form-group"><label class="form-label">রসিদ / মেমোতে জমিদারের স্বাক্ষর</label>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <button type="button" id="ownerSigToggle" onclick="toggleOwnerSig()" class="btn btn-primary btn-sm"><i class="fas fa-toggle-on"></i> চালু</button>
+              <span id="ownerSigToggleHint" style="font-size:.76rem;color:var(--text-muted);"></span>
+            </div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onclick="saveSettings()" class="btn btn-primary"><i class="fas fa-save"></i> সংরক্ষণ করুন</button>
             <button onclick="openModal('signatureModal');initSignatureCanvas()" class="btn btn-outline"><i class="fas fa-signature"></i> মালিকের স্বাক্ষর</button>
@@ -752,6 +764,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
               </select>
             </div>
             <div class="form-group"><label class="form-label">মাসিক ভাড়া (৳) *</label><input id="tRent" class="form-input" type="number" placeholder="৳ 0"></div>
+            <div class="form-group"><label class="form-label">প্রতি নতুন বছরে ভাড়া বৃদ্ধি (৳) <span style="color:var(--text-muted);font-weight:400;font-size:0.74rem;">চুক্তি অনুযায়ী</span></label><input id="tIncrease" class="form-input" type="number" placeholder="0 = বৃদ্ধি নেই" oninput="updateRentIncreaseHint()"><div id="tIncreaseHint" style="font-size:.72rem;color:var(--text-muted);margin-top:3px;"></div></div>
             <div class="form-group"><label class="form-label">অগ্রিম পরিমাণ (৳)</label><input id="tAdvance" class="form-input" type="number" placeholder="৳ 0" oninput="updateAdvanceCalc()"></div>
             <div class="form-group"><label class="form-label">চুক্তি শুরু *</label><input id="tStartDate" class="form-input" type="date"></div>
             <div class="form-group"><label class="form-label">চুক্তি শেষ *</label><input id="tEndDate" class="form-input" type="date"></div>
@@ -843,7 +856,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
           <select id="rTenant" class="form-input form-select" onchange="fillRentInfo()"></select>
         </div>
         <div class="form-group"><label class="form-label">মাস *</label>
-          <select id="rMonth" class="form-input form-select">
+          <select id="rMonth" class="form-input form-select" onchange="fillRentInfo()">
             <option>জানুয়ারি</option><option>ফেব্রুয়ারি</option><option>মার্চ</option>
             <option>এপ্রিল</option><option>মে</option><option>জুন</option>
             <option>জুলাই</option><option>আগস্ট</option><option>সেপ্টেম্বর</option>
@@ -1086,7 +1099,6 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
      <script src="script.js"></script>
 
 <!-- Firebase Compat SDK -->
- 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
