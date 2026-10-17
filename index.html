@@ -698,7 +698,7 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
           <div class="form-group"><label class="form-label">হোল্ডিং নম্বর</label><input id="mktHolding" class="form-input" value="হোল্ডিং নং-২৪৯৩/২৭৯১"></div>
           <div class="form-group"><label class="form-label">সংগ্রহকারীদের তালিকা (প্রতি লাইনে একটি নাম)</label><textarea id="collectorsInput" class="form-input" rows="3" placeholder="যেমন:&#10;নাঈম&#10;রফিক"></textarea><div style="font-size:.72rem;color:var(--text-muted);margin-top:3px;">এই তালিকা রসিদ তৈরির সময় ড্রপডাউনে আসবে। শেষবার যাদের বেছেছিলেন তারা আগে থেকেই টিক থাকবে।</div></div>
           <div class="form-group"><label class="form-label">রসিদ যাচাই পেজের লিংক (QR কোডের জন্য)</label><input id="mktVerifyUrl" class="form-input" placeholder="https://haji-chan-market.web.app/verify.html"><div style="font-size:.72rem;color:var(--text-muted);margin-top:3px;">ফাঁকা রাখলে এই সাইটের <b>verify.html</b> ব্যবহার হবে। সাইট অনলাইনে (Hosting) থাকলেই ফোন থেকে স্ক্যান কাজ করবে।</div></div>
-          <div class="form-group"><label class="form-label">রসিদ / মেমোতে জমিদারের স্বাক্ষর</label>
+          <div class="form-group"><label class="form-label">রসিদে স্বাক্ষর (জমিদার ও ভাড়াটিয়া — দুটোই একসাথে)</label>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
               <button type="button" id="ownerSigToggle" onclick="toggleOwnerSig()" class="btn btn-primary btn-sm"><i class="fas fa-toggle-on"></i> চালু</button>
               <span id="ownerSigToggleHint" style="font-size:.76rem;color:var(--text-muted);"></span>
@@ -856,14 +856,14 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
           <select id="rTenant" class="form-input form-select" onchange="fillRentInfo()"></select>
         </div>
         <div class="form-group"><label class="form-label">মাস *</label>
-          <select id="rMonth" class="form-input form-select" onchange="fillRentInfo()">
+          <select id="rMonth" class="form-input form-select" onchange="this.dataset.manual='1';fillRentInfo()">
             <option>জানুয়ারি</option><option>ফেব্রুয়ারি</option><option>মার্চ</option>
             <option>এপ্রিল</option><option>মে</option><option>জুন</option>
             <option>জুলাই</option><option>আগস্ট</option><option>সেপ্টেম্বর</option>
             <option>অক্টোবর</option><option>নভেম্বর</option><option>ডিসেম্বর</option>
           </select>
         </div>
-        <div class="form-group"><label class="form-label">তারিখ *</label><input id="rDate" class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">তারিখ *</label><input id="rDate" class="form-input" type="date" onchange="rentDateChanged()"></div>
         <div class="form-group"><label class="form-label">দোকান নম্বর</label><input id="rShop" class="form-input" readonly></div>
         <div class="form-group"><label class="form-label">মাসিক ভাড়া (৳)</label><input id="rMonthlyRent" class="form-input" type="number"></div>
         <div class="form-group"><label class="form-label">প্রদত্ত পরিমাণ (৳) *</label><input id="rPaid" class="form-input" type="number" oninput="calcDue()"></div>
