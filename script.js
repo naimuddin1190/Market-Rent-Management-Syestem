@@ -247,7 +247,7 @@ const TRANSLATIONS = {
     addShop:'নতুন দোকান', newReceipt:'নতুন রসিদ তৈরি',
     monthlyIncomeSummary:'মাসিক আয়ের সারসংক্ষেপ', expiringContracts:'মেয়াদ শেষ হচ্ছে',
     recentActivities:'সাম্প্রতিক কার্যক্রম', shopStatus:'দোকান অবস্থা',
-    activeContracts:'সক্রিয়', leaveRequests:'ছাড়ার আবেদন', archived:'আর্কাইভ',
+    activeContracts:'সক্রিয়', leaveRequests:'ছাড়ার আবেদন', archived:'পুরাতন ভাড়াটিয়া',
     notifications:'নোটিফিকেশন', paid:'পরিশোধিত', partial:'আংশিক', due:'বাকি',
     active:'সক্রিয়', expired:'মেয়াদ উত্তীর্ণ', expiring:'মেয়াদ শেষ হচ্ছে',
     totalTenants:'মোট ভাড়াটিয়া', totalShops:'মোট দোকান',
@@ -268,7 +268,7 @@ const TRANSLATIONS = {
     addShop:'Add Shop', newReceipt:'New Receipt',
     monthlyIncomeSummary:'Monthly Income Summary', expiringContracts:'Expiring Contracts',
     recentActivities:'Recent Activities', shopStatus:'Shop Status',
-    activeContracts:'Active', leaveRequests:'Leave Requests', archived:'Archived',
+    activeContracts:'Active', leaveRequests:'Leave Requests', archived:'Old Tenants',
     notifications:'Notifications', paid:'Paid', partial:'Partial', due:'Due',
     active:'Active', expired:'Expired', expiring:'Expiring Soon',
     totalTenants:'Total Tenants', totalShops:'Total Shops',
@@ -314,7 +314,7 @@ function authErrorBn(e) {
 // doLogin / resetPassword — নিচে "লগইন আপগ্রেড" অংশে আছে
 
 async function doLogout() {
-  if (!confirm('লগআউট করতে চান?')) return;
+  if (!await uiConfirm('লগআউট করতে চান?')) return;
   try { if (auth_fire) await auth_fire.signOut(); } catch (e) { console.warn(e); }
   localStorage.removeItem('currentUser');
   location.reload();
@@ -493,15 +493,105 @@ window.addEventListener('click', e => { if (e.target.classList.contains('modal-o
 // ============================================================
 // TOAST
 // ============================================================
-function showToast(msg, type='success') {
-  const t = document.createElement('div');
-  const clr = {success:'#16a34a',error:'#dc2626',warning:'#d97706',info:'#2563eb'};
-  t.style.cssText = 'position:fixed;bottom:70px;right:16px;background:'+(clr[type]||clr.success)+';color:#fff;padding:12px 18px;border-radius:10px;font-size:0.87rem;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.25);transform:translateY(20px);opacity:0;transition:all 0.3s;font-family:Noto Sans Bengali,sans-serif;max-width:300px;word-break:break-word;';
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(()=>{ t.style.transform='translateY(0)'; t.style.opacity='1'; },50);
-  setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),300); },3500);
+// ============================================================
+// সুন্দর বার্তা: টোস্ট (alert/warning) + কনফার্ম ডায়ালগ — ওয়েবসাইটের সবুজ থিমে, ডার্ক মোডসহ
+// ============================================================
+(function injectUiMsgCss() {
+  if (document.getElementById('uiMsgCss')) return;
+  const st = document.createElement('style'); st.id = 'uiMsgCss';
+  st.textContent = `
+  #toastBox{position:fixed;right:16px;bottom:70px;z-index:10050;display:flex;flex-direction:column;gap:10px;align-items:flex-end;pointer-events:none;max-width:calc(100vw - 32px);}
+  .ui-toast{--c:#16a34a;--t:#dcfce7;pointer-events:auto;position:relative;display:flex;align-items:flex-start;gap:11px;width:min(360px,calc(100vw - 32px));background:var(--bg-card,#fff);color:var(--text-primary,#14532d);border:1px solid var(--border,#bbf7d0);border-left:5px solid var(--c);border-radius:14px;padding:12px 38px 14px 12px;box-shadow:0 10px 30px rgba(20,83,45,.18),0 2px 6px rgba(0,0,0,.06);font-family:var(--font-bn,'Noto Sans Bengali',sans-serif);overflow:hidden;opacity:0;transform:translateX(30px) scale(.97);transition:opacity .3s,transform .3s cubic-bezier(.2,.8,.2,1);}
+  .ui-toast.show{opacity:1;transform:none;}
+  .ui-toast.error{--c:#dc2626;--t:#fee2e2;}.ui-toast.warning{--c:#d97706;--t:#fef3c7;}.ui-toast.info{--c:#2563eb;--t:#dbeafe;}
+  [data-theme="dark"] .ui-toast{--t:rgba(255,255,255,.08);}
+  .ui-toast .ti{flex:0 0 34px;height:34px;border-radius:50%;background:var(--t);color:var(--c);display:flex;align-items:center;justify-content:center;font-size:1rem;}
+  .ui-toast .tb{flex:1;min-width:0;}
+  .ui-toast .tt{font-weight:700;font-size:.8rem;color:var(--c);margin-bottom:1px;}
+  .ui-toast .tm{font-size:.86rem;line-height:1.45;word-break:break-word;color:var(--text-primary,#14532d);}
+  .ui-toast .tx{position:absolute;top:8px;right:8px;width:24px;height:24px;border:none;border-radius:50%;background:transparent;color:var(--text-muted,#6b7280);cursor:pointer;font-size:.8rem;}
+  .ui-toast .tx:hover{background:var(--t);color:var(--c);}
+  .ui-toast .tp{position:absolute;left:0;bottom:0;height:3px;background:var(--c);opacity:.55;width:100%;transform-origin:left;animation:uiToastBar linear forwards;}
+  @keyframes uiToastBar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .ui-dlg-ov{position:fixed;inset:0;z-index:10060;background:rgba(10,26,16,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;transition:opacity .2s;}
+  .ui-dlg-ov.show{opacity:1;}
+  .ui-dlg{--c:#16a34a;--t:#dcfce7;width:min(420px,100%);background:var(--bg-card,#fff);color:var(--text-primary,#14532d);border:1px solid var(--border,#bbf7d0);border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.35);padding:24px 22px 18px;text-align:center;font-family:var(--font-bn,'Noto Sans Bengali',sans-serif);transform:translateY(14px) scale(.96);transition:transform .25s cubic-bezier(.2,.8,.2,1);}
+  .ui-dlg-ov.show .ui-dlg{transform:none;}
+  .ui-dlg.danger{--c:#dc2626;--t:#fee2e2;}.ui-dlg.warning{--c:#d97706;--t:#fef3c7;}
+  [data-theme="dark"] .ui-dlg{--t:rgba(255,255,255,.08);}
+  .ui-dlg .di{width:58px;height:58px;border-radius:50%;margin:0 auto 12px;background:var(--t);color:var(--c);display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 0 0 7px color-mix(in srgb,var(--c) 12%,transparent);}
+  .ui-dlg .dt{font-weight:800;font-size:1.02rem;margin-bottom:6px;}
+  .ui-dlg .dm{font-size:.88rem;line-height:1.6;color:var(--text-secondary,#166534);white-space:pre-line;word-break:break-word;}
+  .ui-dlg .db{display:flex;gap:10px;margin-top:18px;}
+  .ui-dlg .db button{flex:1;padding:10px 14px;border-radius:11px;font:inherit;font-weight:700;font-size:.88rem;cursor:pointer;border:1.5px solid var(--border,#bbf7d0);background:transparent;color:var(--text-primary,#14532d);transition:transform .1s,filter .15s;}
+  .ui-dlg .db button:hover{filter:brightness(.96);}.ui-dlg .db button:active{transform:scale(.97);}
+  .ui-dlg .db .ok{background:var(--c);border-color:var(--c);color:#fff;}
+  .ui-dlg .db button:focus-visible{outline:3px solid color-mix(in srgb,var(--c) 40%,transparent);outline-offset:1px;}
+  .dash-clock{display:inline-flex;align-items:center;gap:7px;margin-left:10px;padding:3px 11px 3px 9px;border-radius:999px;background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;font-size:.82rem;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums;box-shadow:0 2px 8px rgba(22,163,74,.3);font-family:'Segoe UI',Roboto,Arial,sans-serif;vertical-align:middle;}
+  .dash-clock i{font-size:.78rem;opacity:.9;}
+  `;
+  document.head.appendChild(st);
+})();
+const _TOAST = {
+  success: { icon: 'fa-check', title: 'সফল হয়েছে' },
+  error:   { icon: 'fa-exclamation', title: 'সমস্যা হয়েছে' },
+  warning: { icon: 'fa-triangle-exclamation', title: 'সতর্কতা' },
+  info:    { icon: 'fa-info', title: 'তথ্য' }
+};
+function showToast(msg, type = 'success') {
+  type = _TOAST[type] ? type : 'success';
+  let box = document.getElementById('toastBox');
+  if (!box) { box = document.createElement('div'); box.id = 'toastBox'; document.body.appendChild(box); }
+  while (box.children.length >= 4) box.firstChild.remove();
+  const ms = type === 'error' || type === 'warning' ? 5000 : 3500;
+  const t = document.createElement('div'); t.className = 'ui-toast ' + type; t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  t.innerHTML = '<div class="ti"><i class="fas ' + _TOAST[type].icon + '"></i></div><div class="tb"><div class="tt">' + _TOAST[type].title + '</div><div class="tm"></div></div><button class="tx" aria-label="বন্ধ করুন"><i class="fas fa-times"></i></button><div class="tp" style="animation-duration:' + ms + 'ms"></div>';
+  t.querySelector('.tm').textContent = msg;
+  box.appendChild(t);
+  let gone = false;
+  const close = () => { if (gone) return; gone = true; t.classList.remove('show'); setTimeout(() => t.remove(), 300); };
+  t.querySelector('.tx').onclick = close;
+  requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
+  let timer = setTimeout(close, ms);
+  t.addEventListener('mouseenter', () => { clearTimeout(timer); t.querySelector('.tp').style.animationPlayState = 'paused'; });
+  t.addEventListener('mouseleave', () => { t.querySelector('.tp').style.animationPlayState = 'running'; timer = setTimeout(close, 1500); });
 }
+// confirm() এর সুন্দর রূপ — await uiConfirm('...') → true/false
+function uiConfirm(msg, o) {
+  o = o || {};
+  const text = String(msg || '');
+  const danger = o.type ? o.type === 'danger' : /মুছ|ডিলিট|delete|প্রতিস্থাপন/i.test(text);
+  const type = o.type || (danger ? 'danger' : (/লগআউট/.test(text) ? 'warning' : 'info'));
+  const icon = o.icon || (danger ? 'fa-trash-can' : (/লগআউট/.test(text) ? 'fa-right-from-bracket' : 'fa-circle-question'));
+  const parts = text.split('\n\n'); const head = parts.length > 1 ? parts.shift() : '', body = parts.length ? parts.join('\n\n') : text;
+  return new Promise(res => {
+    const ov = document.createElement('div'); ov.className = 'ui-dlg-ov';
+    ov.innerHTML = '<div class="ui-dlg ' + (type === 'danger' ? 'danger' : type === 'warning' ? 'warning' : '') + '" role="alertdialog" aria-modal="true"><div class="di"><i class="fas ' + icon + '"></i></div>' +
+      '<div class="dt"></div><div class="dm"></div><div class="db"><button type="button" class="no"></button><button type="button" class="ok"></button></div></div>';
+    ov.querySelector('.dt').textContent = o.title || (danger ? 'আপনি কি নিশ্চিত?' : (type === 'warning' ? 'নিশ্চিত করুন' : 'নিশ্চিত করুন'));
+    ov.querySelector('.dm').textContent = head ? head + '\n\n' + body : body;
+    ov.querySelector('.no').textContent = o.no || 'না, বাতিল';
+    ov.querySelector('.ok').textContent = o.yes || (danger ? 'হ্যাঁ, মুছুন' : 'হ্যাঁ, নিশ্চিত');
+    document.body.appendChild(ov);
+    const prev = document.activeElement;
+    const done = v => { document.removeEventListener('keydown', key, true); ov.classList.remove('show'); setTimeout(() => ov.remove(), 220); try { prev && prev.focus && prev.focus(); } catch (e) {} res(v); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } else if (e.key === 'Enter' && document.activeElement === ov.querySelector('.ok')) { e.stopPropagation(); } };
+    document.addEventListener('keydown', key, true);
+    ov.querySelector('.no').onclick = () => done(false);
+    ov.querySelector('.ok').onclick = () => done(true);
+    ov.addEventListener('mousedown', e => { if (e.target === ov) done(false); });
+    requestAnimationFrame(() => { ov.classList.add('show'); ov.querySelector(danger ? '.no' : '.ok').focus(); });
+  });
+}
+
+// ড্যাশবোর্ডের ডিজিটাল ঘড়ি (ইংরেজিতে, সেকেন্ডসহ)
+(function dashClockTick() {
+  const tick = () => {
+    const el = document.getElementById('dashClockTxt'); if (!el) return;
+    el.textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  };
+  tick(); setInterval(tick, 1000);
+})();
 
 // ============================================================
 // ACTIVITIES
@@ -624,7 +714,7 @@ function openTenantModal(id) {
   document.getElementById('photoPreview').dataset.photo = '';
   document.getElementById('advanceCalc').style.display = 'none';
   updateRentIncreaseHint();
-  populateShopSelect();
+  populateShopSelect(id);
   const now = new Date();
   document.getElementById('tStartDate').value = isoLocal(now);
   const end = new Date(now); end.setFullYear(end.getFullYear()+1);
@@ -665,12 +755,38 @@ function openTenantModal(id) {
   openModal('tenantModal');
 }
 
-function populateShopSelect() {
+// দোকান কার কাছে ভাড়া দেওয়া — ভাড়াটিয়ার ডেটা থেকেই (সবসময় সত্য)
+const shopTenant = (number, exceptId) => (tenants || []).find(t => !t.archived && t.shop === number && t.id !== exceptId) || null;
+function shopEffStatus(s) { return shopTenant(s.number) ? 'occupied' : (s.status === 'maintenance' ? 'maintenance' : 'empty'); }
+async function syncShopStatus(number) {
+  if (!number) return;
+  const si = (shops || []).findIndex(x => x.number === number); if (si < 0) return;
+  const want = shopTenant(number) ? 'occupied' : (shops[si].status === 'maintenance' ? 'maintenance' : 'empty');
+  if (shops[si].status !== want) { shops[si].status = want; await FDB.save('shops', shops[si].id, shops[si]); }
+}
+function populateShopSelect(editId) {
   const sel = document.getElementById('tShop');
   if (!sel) return;
   sel.innerHTML = '<option value="">-- দোকান নির্বাচন --</option>';
-  shops.forEach(s => { const o=document.createElement('option'); o.value=s.number; o.textContent=s.number+' ('+s.floor+')'; sel.appendChild(o); });
+  shops.forEach(s => {
+    const o = document.createElement('option'); o.value = s.number;
+    const other = shopTenant(s.number, editId), mine = editId && (tenants || []).some(t => t.id === editId && t.shop === s.number);
+    const fl = ' (' + s.floor + ')';
+    if (other) { o.textContent = s.number + fl + ' ভাড়া দেওয়া'; o.disabled = true; o.style.opacity = '.4'; }
+    else if (mine) { o.textContent = s.number + fl + ' ভাড়া দেওয়া (এই ভাড়াটিয়া)'; }
+    else if (s.status === 'maintenance') { o.textContent = s.number + fl + ' রক্ষণাবেক্ষণ'; o.disabled = true; o.style.opacity = '.4'; }
+    else o.textContent = s.number + fl + ' খালি';
+    sel.appendChild(o);
+  });
   if (!shops.length) ['A-01','A-02','B-01','B-02'].forEach(n => { const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+}
+
+// দোকান বাছলে তার ফ্লোর নিজে বসে যায়
+function tShopChanged() {
+  const s = (shops || []).find(x => x.number === document.getElementById('tShop').value); if (!s || !s.floor) return;
+  const f = document.getElementById('tFloor');
+  if (![...f.options].some(o => o.value === s.floor)) { const o = document.createElement('option'); o.textContent = s.floor; f.appendChild(o); }
+  f.value = s.floor;
 }
 
 function previewPhoto(input) {
@@ -711,6 +827,7 @@ async function saveTenant() {
   if (!name||!mobile||!shop||!rent) { showToast('অনুগ্রহ করে সব প্রয়োজনীয় তথ্য পূরণ করুন','error'); return; }
 
   const id = document.getElementById('tenantId').value;
+  { const other = shopTenant(shop, id); if (other) { showToast('দোকান ' + shop + ' এখন ' + other.name + '-কে ভাড়া দেওয়া আছে। খালি দোকান বাছুন', 'error'); return; } }
   const tenantId = id || 'T'+Date.now();
   const photoEl = document.getElementById('photoPreview');
   let photoUrl = photoEl.dataset.photo || (photoEl.querySelector('img')?photoEl.querySelector('img').src:'');
@@ -764,10 +881,7 @@ async function saveTenant() {
 
   await FDB.save('tenants', tn.id, tn);
   tenants = await FDB.getAll('tenants');
-  if (!id) {
-    const si = shops.findIndex(s=>s.number===shop);
-    if (si>=0) { shops[si].status='occupied'; await FDB.save('shops', shops[si].id, shops[si]); }
-  }
+  { const oldShop = id && existing ? existing.shop : ''; await syncShopStatus(shop); if (oldShop && oldShop !== shop) await syncShopStatus(oldShop); renderShops(); }
   addActivity((id?'ভাড়াটিয়া সম্পাদিত: ':'নতুন ভাড়াটিয়া: ')+name, id?'user-edit':'user-plus', id?'#2563eb':'#16a34a');
   showSyncOverlay(false);
   closeModal('tenantModal');
@@ -776,15 +890,7 @@ async function saveTenant() {
   showToast(id?'ভাড়াটিয়ার তথ্য আপডেট হয়েছে ☁️':'নতুন ভাড়াটিয়া যোগ হয়েছে ☁️');
 }
 
-async function deleteTenant(id) {
-  if (!confirm('এই ভাড়াটিয়া মুছে ফেলতে চান?')) return;
-  const tn = tenants.find(x=>x.id===id);
-  await FDB.delete('tenants', id);
-  tenants = await FDB.getAll('tenants');
-  addActivity('ভাড়াটিয়া মুছে ফেলা হয়েছে: '+(tn?tn.name:''),'trash','#dc2626');
-  renderTenants(); updateNotifications();
-  showToast('ভাড়াটিয়া মুছে ফেলা হয়েছে','error');
-}
+function deleteTenant(id) { return tenantMoveToOld(id); }   // মুছলে চুক্তি ট্র্যাকারের "পুরাতন ভাড়াটিয়া"-তে সরে যায়
 
 function viewTenant(id) {
   const tn = tenants.find(x=>x.id===id);
@@ -862,7 +968,7 @@ function viewTenantPhoto(id) {
 }
 
 async function deleteTenantPhoto(id) {
-  if (!confirm('প্রোফাইল ছবিটি মুছে ফেলবেন?')) return;
+  if (!await uiConfirm('প্রোফাইল ছবিটি মুছে ফেলবেন?')) return;
   try {
     await FDB.save('tenants', id, {photo:''});
     tenants = await FDB.getAll('tenants');
@@ -967,7 +1073,7 @@ function renderTenants() {
       '<button onclick="openTenantModal(\''+tn.id+'\')" class="btn btn-outline btn-sm" title="সম্পাদনা"><i class="fas fa-edit"></i></button>'+
       '<button onclick="quickRent(\''+tn.id+'\')" class="btn btn-primary btn-sm" title="রসিদ"><i class="fas fa-receipt"></i></button>'+
       '<button onclick="printTenant(\''+tn.id+'\')" class="btn btn-gray btn-sm" title="প্রিন্ট"><i class="fas fa-print"></i></button>'+
-      '<button onclick="deleteTenant(\''+tn.id+'\')" class="btn btn-danger btn-sm" title="মুছুন"><i class="fas fa-trash"></i></button>'+
+      '<button onclick="deleteTenant(\''+tn.id+'\')" class="btn btn-danger btn-sm" title="মুছুন (পুরাতন ভাড়াটিয়ায় যাবে)"><i class="fas fa-trash"></i></button>'+
       '</div></td></tr>';
   }).join('') || '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted);">কোনো ভাড়াটিয়া পাওয়া যায়নি</td></tr>';
 }
@@ -991,48 +1097,7 @@ function removeNID(previewId, dataId, fileId) {
 function printTenant(id) {
   const tn = tenants.find(x => x.id === id);
   if (!tn) { showToast('ভাড়াটিয়া পাওয়া যায়নি', 'error'); return; }
-  const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const num = v => (parseFloat(v) || 0).toLocaleString('bn-BD');
-  const deduction = tn.monthlyDeduction || tn.deduction || 0;
-  const monthsElapsed = tn.startDate ? Math.floor((new Date() - new Date(tn.startDate)) / (1000*60*60*24*30)) : 0;
-  const remaining = Math.max(0, (tn.advance||0) - Math.min(monthsElapsed*deduction, tn.advance||0));
-  const row = (l, v) => '<tr><td class="l">'+l+'</td><td>'+esc(v||'-')+'</td></tr>';
-  const img = (src, cap) => src ? '<div class="box"><div class="cap">'+cap+'</div><img src="'+src+'"></div>' : '';
-  const photo = tn.photo
-    ? '<img class="avatar" src="'+tn.photo+'">'
-    : '<div class="avatar ph">'+esc((tn.name||'?').charAt(0))+'</div>';
-  const sigImg = ownerSignature ? '<img src="'+ownerSignature+'" style="height:40px;display:block;margin:0 auto 2px;">' : '';
-
-  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>ভাড়াটিয়ার তথ্য - '+esc(tn.name)+'</title><style>'+
-    "@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap');"+
-    "body{font-family:'Noto Sans Bengali',Arial,sans-serif;margin:14mm;color:#14532d;}"+
-    'h1{text-align:center;font-size:22px;margin:0;} .sub{text-align:center;font-size:12px;color:#166534;margin:2px 0;}'+
-    '.title{text-align:center;margin:12px 0;font-size:16px;font-weight:700;background:#16a34a;color:#fff;padding:4px;border-radius:4px;}'+
-    '.top{display:flex;gap:16px;align-items:flex-start;} .avatar{width:110px;height:110px;border-radius:50%;object-fit:cover;border:2px solid #16a34a;flex-shrink:0;}'+
-    '.avatar.ph{display:flex;align-items:center;justify-content:center;background:#16a34a;color:#fff;font-size:42px;font-weight:700;}'+
-    'table{border-collapse:collapse;width:100%;font-size:14px;} td{border:1px solid #86efac;padding:6px 10px;} td.l{background:#f0fdf4;width:34%;font-weight:600;}'+
-    '.nids{display:flex;gap:16px;margin-top:18px;} .box{flex:1;text-align:center;} .box img{width:100%;max-height:230px;object-fit:contain;border:1px solid #86efac;border-radius:4px;} .cap{font-size:12px;margin-bottom:4px;}'+
-    '.sign{display:flex;justify-content:space-between;margin-top:70px;font-size:13px;} .sign div{border-top:1px solid #14532d;padding-top:4px;width:38%;text-align:center;}'+
-    '@media print{body{margin:10mm;} @page{margin:8mm;}}'+
-    '</style></head><body>'+
-    '<h1>'+esc(settings.mktName||'')+'</h1><div class="sub">'+esc(settings.mktAddress||'')+'</div><div class="sub">ফোন : '+esc(settings.mktPhone||'')+'</div>'+
-    '<div class="title">ভাড়াটিয়ার তথ্য</div>'+
-    '<div class="top">'+photo+'<table>'+
-      row('নাম', tn.name)+row('মোবাইল', tn.mobile)+row('এনআইডি নম্বর', tn.nid)+
-      row('দোকান নং', tn.shop)+row('ফ্লোর', tn.floor)+
-      row('মাসিক ভাড়া', '৳'+num(tn.rent))+row('অগ্রিম', '৳'+num(tn.advance))+
-      row('মাসিক কর্তন', '৳'+num(deduction))+row('অবশিষ্ট অগ্রিম', '৳'+num(remaining))+
-      row('চুক্তি শুরু', fmtDate(tn.startDate))+row('চুক্তি শেষ', fmtDate(tn.endDate))+
-      row('ঠিকানা', tn.address)+row('মন্তব্য', tn.notes)+
-    '</table></div>'+
-    '<div class="nids">'+img(tn.nidFrontUrl,'এনআইডি — সামনের দিক')+img(tn.nidBackUrl,'এনআইডি — পিছনের দিক')+'</div>'+
-    '<div class="sign"><div>ভাড়াটিয়ার স্বাক্ষর</div><div>'+sigImg+'জমিদারের স্বাক্ষর</div></div>'+
-    '<div class="sub" style="margin-top:14px;">প্রিন্টের তারিখ: '+fmtDate(new Date())+'</div>'+
-    '<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},700);}</scr'+'ipt></body></html>';
-
-  const w = window.open('', '_blank', 'width=900,height=700');
-  if (!w) { showToast('Pop-up allow korun', 'warning'); return; }
-  w.document.write(html); w.document.close();
+  lfPrintHtml(tnDossierBody(tn, { title: 'ভাড়াটিয়ার তথ্য পত্র', sign: true }), 'ভাড়াটিয়ার তথ্য - ' + tn.name);
 }
 
 // ============================================================
@@ -1069,7 +1134,7 @@ async function saveShop() {
 }
 
 async function deleteShop(id) {
-  if (!confirm('এই দোকান মুছে ফেলতে চান?')) return;
+  if (!await uiConfirm('এই দোকান মুছে ফেলতে চান?')) return;
   await FDB.delete('shops', id);
   shops = await FDB.getAll('shops');
   renderShops(); showToast('দোকান মুছে ফেলা হয়েছে','error');
@@ -1084,13 +1149,14 @@ function renderShops() {
   const stCls  = {occupied:'badge-green',empty:'badge-blue',maintenance:'badge-yellow'};
   grid.innerHTML = shops.map(s => {
     const tn = tenants.find(t=>t.shop===s.number&&!t.archived);
+    s = Object.assign({}, s, { status: shopEffStatus(s) });
     return '<div class="stat-card" style="padding:16px;background:'+(stClr[s.status]||'#fff')+'22;">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'+
       '<div><div style="font-size:1.2rem;font-weight:800;">'+s.number+'</div><div style="font-size:0.77rem;color:var(--text-muted);">'+s.floor+'</div></div>'+
       '<span class="badge '+stCls[s.status]+'">'+stText[s.status]+'</span></div>'+
       (s.rent?'<div style="font-size:0.85rem;font-weight:700;color:var(--accent);margin-bottom:4px;">৳'+s.rent.toLocaleString()+'/মাস</div>':'')+
       (s.size?'<div style="font-size:0.77rem;color:var(--text-muted);margin-bottom:4px;">'+s.size+' বর্গফুট</div>':'')+
-      (tn?'<div style="font-size:0.8rem;padding:5px 8px;background:rgba(22,163,74,0.1);border-radius:6px;margin-bottom:8px;"><i class="fas fa-user" style="color:var(--accent);margin-right:4px;"></i>'+tn.name+'</div>':'')+
+      (tn?'<div style="font-size:0.8rem;padding:4px 8px;background:rgba(22,163,74,0.1);border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:7px;">'+(tn.photo?'<img src="'+tn.photo+'" alt="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--accent);">':'<i class="fas fa-user" style="color:var(--accent);"></i>')+'<span>'+tn.name+'</span></div>':'')+
       '<div style="display:flex;gap:4px;margin-top:8px;">'+
       '<button onclick="openShopModal(\''+s.id+'\')" class="btn btn-outline btn-sm"><i class="fas fa-edit"></i></button>'+
       '<button onclick="deleteShop(\''+s.id+'\')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>'+
@@ -1352,7 +1418,7 @@ function renderPayments() {
 }
 
 async function deletePayment(id) {
-  if (!confirm('এই রসিদ মুছে ফেলতে চান?')) return;
+  if (!await uiConfirm('এই রসিদ মুছে ফেলতে চান?')) return;
   const _p = payments.find(x=>x.id===id);
   if (_p && _p.verifyToken && FIREBASE_READY) { try { await db_fire.collection('receipts').doc(_p.verifyToken).delete(); } catch(e) { console.warn(e); } }
   await FDB.delete('payments', id);
@@ -1781,11 +1847,13 @@ function renderAgreements() {
       '<div style="background:var(--border);border-radius:4px;height:5px;margin-bottom:6px;overflow:hidden;"><div style="height:100%;background:'+bc+';width:'+pct+'%;border-radius:4px;transition:width 0.5s;"></div></div>'+
       (st.days!==null&&st.days>=0?'<div style="font-size:0.75rem;color:var(--text-muted);">'+pct+'% সম্পন্ন • '+st.days+' দিন অবশিষ্ট</div>':'')+
       '<div style="display:flex;gap:5px;margin-top:10px;flex-wrap:wrap;">'+
-      '<button onclick="openTenantModal(\''+tn.id+'\')" class="btn btn-outline btn-sm"><i class="fas fa-sync"></i> নবায়ন</button>'+
+      '<button onclick="openRenewal(\''+tn.id+'\')" class="btn btn-outline btn-sm"><i class="fas fa-sync"></i> নবায়ন</button>'+
+      ((tn.renewals&&tn.renewals.length)?'<button onclick="rnLatest(\''+tn.id+'\')" class="btn btn-gray btn-sm" title="সর্বশেষ নবায়নের তথ্য"><i class="fas fa-history"></i> নবায়ন তথ্য</button>':'')+
       '<button onclick="openLeaveRequest(\''+tn.id+'\')" class="btn btn-warning btn-sm"><i class="fas fa-door-open"></i> ছাড়ার আবেদন</button>'+
       '<button onclick="openAgreementUpload(\''+tn.id+'\')" class="btn btn-ghost btn-sm"><i class="fas fa-upload"></i> আপলোড</button>'+
       '<button onclick="openAgreementView(\''+tn.id+'\')" class="btn btn-primary btn-sm"><i class="fas fa-file-pdf"></i> চুক্তি দেখুন</button>'+
       '<a href="https://wa.me/88'+(tn.mobile||'').replace(/[^0-9]/g,'')+'" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff;"><i class="fab fa-whatsapp"></i></a>'+
+      '<button onclick="tenantMoveToOld(\''+tn.id+'\')" class="btn btn-danger btn-sm" title="ভাড়াটিয়া সেকশন থেকে মুছে পুরাতন ভাড়াটিয়ায় রাখুন"><i class="fas fa-user-times"></i> ভাড়াটিয়া মুছুন</button>'+
       '</div></div>';
   }).join('') || '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">কোনো সক্রিয় চুক্তি নেই।</div>';
 }
@@ -1882,7 +1950,7 @@ async function renderLeaveRequests() {
       '<div style="font-size:.82rem;margin-bottom:10px;">প্রস্থান: <strong>'+fmtDate(r.exitDate)+'</strong>'+(r.reason?' — '+r.reason:'')+'</div>'+
       '<div style="display:flex;gap:6px;flex-wrap:wrap;">'+
       '<button onclick="approveLeaveRequest(\''+r.id+'\',\'approved\')" class="btn btn-success btn-sm"><i class="fas fa-check"></i> অনুমোদন</button>'+
-      '<button onclick="archiveTenant(\''+r.tenantId+'\')" class="btn btn-danger btn-sm"><i class="fas fa-archive"></i> আর্কাইভ করুন</button>'+
+      '<button onclick="tenantMoveToOld(\''+r.tenantId+'\')" class="btn btn-danger btn-sm"><i class="fas fa-user-times"></i> পুরাতন ভাড়াটিয়ায় সরান</button>'+
       '</div></div>';
   }).join('');
 }
@@ -1891,47 +1959,6 @@ async function approveLeaveRequest(reqId, status) {
   await FDB.save('leaveRequests', reqId, {status});
   showToast('আবেদনের অবস্থা আপডেট হয়েছে ✅');
   renderLeaveRequests();
-}
-
-async function archiveTenant(tenantId) {
-  if (!confirm('এই ভাড়াটিয়াকে আর্কাইভ করবেন? তিনি সক্রিয় তালিকা থেকে সরে যাবেন কিন্তু সব ডেটা সংরক্ষিত থাকবে।')) return;
-  const tn=tenants.find(x=>x.id===tenantId);
-  if (!tn) return;
-  // Archive: set archived=true, keep ALL data (DO NOT DELETE)
-  const archivedData = {...tn, archived:true, archivedAt:new Date().toISOString()};
-  await FDB.save('tenants', tenantId, archivedData);
-  await FDB.save('archivedTenants', tenantId, archivedData);
-  tenants = await FDB.getAll('tenants');
-  addActivity(tn.name+' আর্কাইভ হয়েছেন','archive','#6b7280');
-  showToast(tn.name+' আর্কাইভ হয়েছেন (সব ডেটা সংরক্ষিত)');
-  renderAgreements();
-}
-
-async function renderArchivedTenants() {
-  let list=[];
-  try {
-    if (FIREBASE_READY) {
-      const snap=await db_fire.collection('archivedTenants').get();
-      list=snap.docs.map(d=>({id:d.id,...d.data()}));
-    } else { list=JSON.parse(localStorage.getItem('archivedTenants')||'[]'); }
-  } catch(e) { list=JSON.parse(localStorage.getItem('archivedTenants')||'[]'); }
-  const el=document.getElementById('archivedTenantList'); if(!el) return;
-  if (!list.length) { el.innerHTML='<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:20px;">কোনো আর্কাইভ নেই</p>'; return; }
-  el.innerHTML='<div style="overflow-x:auto;"><table class="data-table"><thead><tr><th>নাম</th><th>দোকান</th><th>মাসিক ভাড়া</th><th>অগ্রিম</th><th>আর্কাইভ তারিখ</th><th>কার্যক্রম</th></tr></thead><tbody>'+
-    list.map(t=>'<tr><td><div style="font-weight:600;">'+t.name+'</div><div style="font-size:.75rem;color:var(--text-muted);">'+t.mobile+'</div></td>'+
-      '<td>'+t.shop+'</td>'+
-      '<td>৳'+(t.rent||0).toLocaleString()+'</td>'+
-      '<td>৳'+(t.advance||0).toLocaleString()+'</td>'+
-      '<td style="font-size:.78rem;">'+fmtDate(t.archivedAt)+'</td>'+
-      '<td><button onclick="viewArchivedTenant(\''+t.id+'\')" class="btn btn-gray btn-sm"><i class="fas fa-eye"></i> দেখুন</button></td></tr>'
-    ).join('')+'</tbody></table></div>';
-}
-
-function viewArchivedTenant(id) {
-  const list = JSON.parse(localStorage.getItem('archivedTenants')||'[]');
-  const tn = list.find(x=>x.id===id);
-  if (!tn) return;
-  alert(JSON.stringify({name:tn.name,shop:tn.shop,rent:tn.rent,advance:tn.advance,nid:tn.nid,mobile:tn.mobile,archivedAt:fmtDate(tn.archivedAt)},null,2));
 }
 
 // ── Agreement Upload ─────────────────────────────────────────
@@ -2101,7 +2128,7 @@ async function openAgreementView(tenantId) {
 
 
 async function deleteAgreement(agId, tenantId, chunkCount) {
-  if (!confirm('এই চুক্তিপত্রটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
+  if (!await uiConfirm('এই চুক্তিপত্রটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
   showSyncOverlay(true, 'চুক্তিপত্র মুছে ফেলা হচ্ছে...');
   try {
     if (FIREBASE_READY) {
@@ -2177,7 +2204,7 @@ function renderDashboard() {
   const collected = mpays.reduce((a,b)=>a+(b.paid||0),0);
   const totalDue  = payments.reduce((a,b)=>a+(b.due||0),0);
   const expiring  = activeTenants.filter(t=>{ const s=getAgreementStatus(t); return s.days!==null&&s.days>=0&&s.days<=30; }).length;
-  const occupied  = shops.filter(s=>s.status==='occupied').length;
+  const occupied  = shops.filter(s=>shopEffStatus(s)==='occupied').length;
   const stats=[
     {label:t('totalTenants'),  value:activeTenants.length,         icon:'fa-users',             bg:'#dcfce7',iconBg:'#16a34a'},
     {label:t('totalShops'),    value:shops.length,                  icon:'fa-store-alt',          bg:'#dbeafe',iconBg:'#2563eb'},
@@ -2227,9 +2254,9 @@ function updateDashChart() {
 }
 
 function renderShopPieChart() {
-  const occ=shops.filter(s=>s.status==='occupied').length;
-  const emp=shops.filter(s=>s.status==='empty').length;
-  const mnt=shops.filter(s=>s.status==='maintenance').length;
+  const occ=shops.filter(s=>shopEffStatus(s)==='occupied').length;
+  const emp=shops.filter(s=>shopEffStatus(s)==='empty').length;
+  const mnt=shops.filter(s=>shopEffStatus(s)==='maintenance').length;
   const c=document.getElementById('shopPieChart'); if(!c) return;
   if (shopPieInst) shopPieInst.destroy();
   shopPieInst=new Chart(c,{type:'doughnut',data:{labels:['ভাড়া','খালি','রক্ষণাবেক্ষণ'],datasets:[{data:[occ,emp,mnt],backgroundColor:['#16a34a','#2563eb','#d97706'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}});
@@ -2252,7 +2279,7 @@ function renderReports() {
   if(c1){if(incomeChartInst)incomeChartInst.destroy();incomeChartInst=new Chart(c1,{type:'line',data:{labels:months.map(m=>m.slice(0,3)),datasets:[{label:'সংগৃহীত',data:months.map(m=>payments.filter(p=>p.month===m&&p.year===year).reduce((a,b)=>a+(b.paid||0),0)),borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,0.1)',fill:true,tension:0.4}]},options:bOpts()});}
   const c2=document.getElementById('dueChart');
   if(c2){if(dueChartInst)dueChartInst.destroy();dueChartInst=new Chart(c2,{type:'bar',data:{labels:months.map(m=>m.slice(0,3)),datasets:[{label:'বকেয়া',data:months.map(m=>payments.filter(p=>p.month===m&&p.year===year).reduce((a,b)=>a+(b.due||0),0)),backgroundColor:'rgba(220,38,38,0.7)',borderRadius:6}]},options:bOpts()});}
-  const occ=shops.filter(s=>s.status==='occupied').length,emp=shops.filter(s=>s.status==='empty').length,mnt=shops.filter(s=>s.status==='maintenance').length;
+  const occ=shops.filter(s=>shopEffStatus(s)==='occupied').length,emp=shops.filter(s=>shopEffStatus(s)==='empty').length,mnt=shops.filter(s=>shopEffStatus(s)==='maintenance').length;
   const c3=document.getElementById('occupancyChart');
   if(c3){if(occupancyChartInst)occupancyChartInst.destroy();occupancyChartInst=new Chart(c3,{type:'pie',data:{labels:['ভাড়া','খালি','রক্ষণাবেক্ষণ'],datasets:[{data:[occ,emp,mnt],backgroundColor:['#16a34a','#2563eb','#d97706'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:tc,font:{family:'Noto Sans Bengali'}}}}}});}
   const active=tenants.filter(t=>{const s=getAgreementStatus(t);return!t.archived&&s.days!==null&&s.days>30;}).length;
@@ -2377,7 +2404,7 @@ function importBackup(event) {
   reader.onload=async e=>{
     try {
       const data=JSON.parse(e.target.result);
-      if (confirm('বিদ্যমান সমস্ত ডেটা প্রতিস্থাপন করবেন?')) {
+      if (await uiConfirm('বিদ্যমান সমস্ত ডেটা প্রতিস্থাপন করবেন?')) {
         showSyncOverlay(true,'ডেটা আমদানি হচ্ছে...');
         if(data.tenants)  DB.set('tenants',data.tenants);
         if(data.shops)    DB.set('shops',data.shops);
@@ -2416,7 +2443,7 @@ function clearAllData() {
 // DEMO DATA
 // ============================================================
 async function loadDemoData() {
-  if (!confirm('ডেমো ডেটা লোড করবেন?')) return;
+  if (!await uiConfirm('ডেমো ডেটা লোড করবেন?')) return;
   const now=new Date();
   const e1=new Date(now); e1.setDate(e1.getDate()+15);
   const e2=new Date(now); e2.setDate(e2.getDate()-5);
@@ -3000,7 +3027,7 @@ async function advEntrySave(key) {
 async function advRepayAll() {
   const n = advCalcNums(); if (!_advDoc || !n) return;
   if (!(n.personalDue > 0)) { showToast('ফেরত দেওয়ার মতো কিছু বাকি নেই', 'error'); return; }
-  if (!confirm(money(n.personalDue) + ' ফেরত দেওয়া হিসেবে অগ্রিমে জমা করবেন?')) return;
+  if (!await uiConfirm(money(n.personalDue) + ' ফেরত দেওয়া হিসেবে অগ্রিমে জমা করবেন?')) return;
   _advDoc.repaid = _advDoc.repaid || [];
   _advDoc.repaid.push({ id: 'AE' + Date.now() + Math.floor(Math.random() * 1000), date: isoLocal(new Date()), details: 'ব্যক্তিগত খরচ ফেরত', amount: _r2(n.personalDue) });
   await advPersist(); advRender();
@@ -3014,7 +3041,7 @@ function advEntryEdit(key, id) {
   const ab = document.getElementById('advBtn' + x); if (ab) ab.innerHTML = '<i class="fas fa-sync-alt"></i> আপডেট';
 }
 async function advEntryDel(key, id) {
-  if (!_advDoc || !confirm('এই এন্ট্রিটি মুছে ফেলবেন?')) return;
+  if (!_advDoc || !await uiConfirm('এই এন্ট্রিটি মুছে ফেলবেন?')) return;
   _advDoc[key] = _advDoc[key].filter(e => e.id !== id); _advEdit[key] = null;
   await advPersist(); advRender();
 }
@@ -3048,7 +3075,7 @@ function advOpen(tid, view) {
 }
 async function advDeleteLedger(tid) {
   const tn = (tenants || []).find(t => t.id === tid);
-  if (!confirm((tn ? tn.name + ' এর ' : '') + 'অগ্রিম খাতা মুছে ফেলবেন?')) return;
+  if (!await uiConfirm((tn ? tn.name + ' এর ' : '') + 'অগ্রিম খাতা মুছে ফেলবেন?')) return;
   await FDB.delete('advLedger', tid);
   if (_advTid === tid) { _advDoc = null; _advTid = ''; const sel = document.getElementById('advTenant'); if (sel) sel.value = ''; advRender(); }
   advRenderList(); showToast('অগ্রিম খাতা মুছে ফেলা হয়েছে', 'error');
@@ -3241,13 +3268,13 @@ function expViewMonth(ym) {
 }
 async function expDeleteMonth(ym) {
   const prev = _expYM; _expYM = ym; const list = _expMonthList(); _expYM = prev;
-  if (!list.length || !confirm(_ymLabel(ym) + ' মাসের সব খরচ (' + list.length + ' টি) মুছে ফেলবেন?')) return;
+  if (!list.length || !await uiConfirm(_ymLabel(ym) + ' মাসের সব খরচ (' + list.length + ' টি) মুছে ফেলবেন?')) return;
   for (const e of list) await FDB.delete('expenses', e.id);
   if (_expEditIds) expDraftReset();
   expRenderMonth(); showToast(_ymLabel(ym) + ' মাসের হিসাব মুছে ফেলা হয়েছে', 'error');
 }
 async function expDelete(id) {
-  if (!confirm('এই খরচটি মুছে ফেলবেন?')) return;
+  if (!await uiConfirm('এই খরচটি মুছে ফেলবেন?')) return;
   await FDB.delete('expenses', id); if (_expEditIds && _expEditIds.includes(id)) expDraftReset();
   expRenderMonth(); showToast('খরচ মুছে ফেলা হয়েছে', 'error');
 }
@@ -3526,7 +3553,7 @@ function memoRenderHistory() {
   if (typeof advRenderList === 'function') advRenderList();
 }
 async function memoDelete(id) {
-  if (!confirm('এই মেমো মুছে ফেলতে চান?')) return;
+  if (!await uiConfirm('এই মেমো মুছে ফেলতে চান?')) return;
   await FDB.delete('memos', id);
   if (_memoEditId === id) memoReset();
   memoRenderHistory(); showToast('মেমো মুছে ফেলা হয়েছে', 'error');
@@ -4459,7 +4486,7 @@ function agwTermsRender() {
 }
 function agwTermSet(i, v) { _agw.terms[i] = v; agwPreviewSoon(); }
 function agwTermAdd() { _agw.terms.push(''); agwTermsRender(); agwPreviewSoon(); }
-function agwTermDel(i) { if (!confirm('এই শর্তটি মুছবেন?')) return; _agw.terms.splice(i, 1); agwTermsRender(); agwPreview(); }
+async function agwTermDel(i) { if (!await uiConfirm('এই শর্তটি মুছবেন?')) return; _agw.terms.splice(i, 1); agwTermsRender(); agwPreview(); }
 function agwTermMove(i, d) { const j = i + d; if (j < 0 || j >= _agw.terms.length) return; const t = _agw.terms; [t[i], t[j]] = [t[j], t[i]]; agwTermsRender(); agwPreview(); }
 function agwPreviewSoon() { clearTimeout(_agwTimer); _agwTimer = setTimeout(agwPreview, 350); }
 function agwPreview() {
@@ -4510,7 +4537,7 @@ function agwEdit(id) {
 }
 async function agwDelete(id) {
   const d = _agwAll().find(x => x.id === id);
-  if (!confirm((d ? d.title : 'এই চুক্তিপত্র') + ' মুছে ফেলবেন?')) return;
+  if (!await uiConfirm((d ? d.title : 'এই চুক্তিপত্র') + ' মুছে ফেলবেন?')) return;
   await FDB.delete('agreementDocs', id);
   if (_agw && _agw.id === id) { _agw.id = ''; agwFillForm(); }
   agwList(); showToast('চুক্তিপত্র মুছে ফেলা হয়েছে', 'error');
@@ -4558,6 +4585,412 @@ async function agwWhatsApp(id) {
         }
       } finally { document.body.removeChild(host); }
       if (navigator.canShare({ files })) { await navigator.share({ files, title: (d.name || '') + ' - চুক্তিপত্র', text }); return; }
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; console.warn(e); }
+  window.open(url, '_blank');
+}
+
+// ============================================================
+// ভাড়াটিয়ার জীবনচক্র: ভাড়াটিয়া মুছুন → "পুরাতন ভাড়াটিয়া" ফোল্ডার, এবং নবায়ন
+// ============================================================
+const _lfDigits = v => _bnDigits(String(v == null ? '' : v));
+const _lfMoney = v => '৳' + _lfDigits((Number(v) || 0).toLocaleString('en-IN'));
+const _lfFind = id => (tenants || []).find(x => x.id === id) || DB.get('archivedTenants').find(x => x.id === id) || null;
+function _lfRemaining(tn) {   // অবশিষ্ট অগ্রিম (ভাড়াটিয়া তালিকার হিসাবের মতোই)
+  const ded = tn.monthlyDeduction || tn.deduction || 0;
+  const el = tn.startDate ? Math.floor((new Date() - new Date(tn.startDate)) / (1000 * 60 * 60 * 24 * 30)) : 0;
+  return Math.max(0, (tn.advance || 0) - Math.min(Math.max(0, el) * ded, tn.advance || 0));
+}
+// ── প্রফেশনাল ভাড়াটিয়া তথ্যপত্র (একজনের / সবার) ──
+const TNP_CSS = `
+.tnp,.tnp *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.tnp{font-family:'Noto Sans Bengali','Hind Siliguri',Arial,sans-serif;color:#14291d;background:#fff;line-height:1.45;font-size:13px;}
+.tnp-head{display:flex;align-items:center;gap:14px;padding-bottom:10px;border-bottom:3px solid #16a34a;position:relative;}
+.tnp-head:after{content:'';position:absolute;left:0;bottom:-6px;width:100%;height:1px;background:#14532d;}
+.tnp-logo{width:58px;height:58px;object-fit:contain;flex-shrink:0;}
+.tnp-head h1{font-size:22px;line-height:1.25;color:#14532d;margin:0;font-weight:800;}
+.tnp-sub{font-size:11.5px;color:#4b5d52;}
+.tnp-doc{margin-left:auto;text-align:right;font-size:11px;color:#4b5d52;flex-shrink:0;}
+.tnp-doc b{display:block;font-size:12.5px;color:#14532d;}
+.tnp-title{display:flex;align-items:center;gap:12px;margin:20px 0 14px;}
+.tnp-title:before,.tnp-title:after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,#16a34a);}
+.tnp-title:after{background:linear-gradient(270deg,transparent,#16a34a);}
+.tnp-title span{background:#14532d;color:#fff;font-weight:700;font-size:14.5px;padding:5px 22px;border-radius:999px;letter-spacing:.2px;}
+.tnp-profile{display:flex;gap:18px;align-items:center;background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border:1px solid #bbf7d0;border-radius:16px;padding:14px 16px;}
+.tnp-photo{width:104px;height:104px;border-radius:18px;object-fit:cover;border:3px solid #fff;box-shadow:0 2px 10px rgba(20,83,45,.25);flex-shrink:0;}
+.tnp-photo.ph{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;font-size:42px;font-weight:800;}
+.tnp-name{font-size:22px;font-weight:800;color:#14532d;line-height:1.25;}
+.tnp-meta{font-size:12.5px;color:#3f5a48;margin-top:2px;}
+.tnp-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.tnp-chip{display:inline-block;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:700;background:#fff;color:#14532d;border:1px solid #86efac;}
+.tnp-chip.g{background:#16a34a;border-color:#16a34a;color:#fff;}.tnp-chip.y{background:#fef3c7;border-color:#fcd34d;color:#92400e;}.tnp-chip.r{background:#fee2e2;border-color:#fca5a5;color:#b91c1c;}.tnp-chip.n{background:#f3f4f6;border-color:#d1d5db;color:#4b5563;}
+.tnp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;}
+.tnp-card{border:1px solid #bbf7d0;border-radius:12px;overflow:hidden;break-inside:avoid;page-break-inside:avoid;background:#fff;}
+.tnp-card.full{grid-column:1/-1;margin-top:14px;}.tnp-grid .tnp-card.full{margin-top:0;}
+.tnp-card h3{background:#14532d;color:#fff;font-size:12.5px;margin:0;padding:6px 12px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.tnp-card h3:before{content:'';width:6px;height:6px;border-radius:50%;background:#4ade80;}
+.tnp-row{display:flex;justify-content:space-between;gap:10px;padding:6px 12px;border-bottom:1px solid #ecfdf5;font-size:12.5px;}
+.tnp-row:nth-child(odd){background:#f7fef9;}.tnp-row:last-child{border-bottom:none;}
+.tnp-row .k{color:#5b6f62;flex-shrink:0;}.tnp-row .v{font-weight:600;text-align:right;word-break:break-word;}
+.tnp-nid{display:flex;gap:12px;padding:10px;}
+.tnp-nid>div{flex:1;text-align:center;}
+.tnp-nid .c{font-size:11.5px;font-weight:700;color:#14532d;margin-bottom:4px;}
+.tnp-nid img{width:100%;max-height:185px;object-fit:contain;border:1px solid #bbf7d0;border-radius:8px;background:#fafafa;}
+.tnp-sign{display:flex;justify-content:space-between;gap:30px;margin-top:54px;}
+.tnp-sign>div{flex:1;text-align:center;font-size:12px;color:#14532d;}
+.tnp-sign .ln{border-top:1.5px solid #14532d;padding-top:4px;margin-top:2px;}
+.tnp-sign img{height:40px;display:block;margin:0 auto 2px;}
+.tnp-foot{margin-top:16px;border-top:1px solid #bbf7d0;padding-top:6px;font-size:10.5px;color:#6b7c71;display:flex;justify-content:space-between;}
+.tnp-stats{display:flex;gap:10px;margin-bottom:12px;}
+.tnp-stat{flex:1;border:1px solid #bbf7d0;border-radius:12px;padding:8px 12px;background:linear-gradient(135deg,#f0fdf4,#fff);}
+.tnp-stat b{display:block;font-size:16px;color:#14532d;}.tnp-stat span{font-size:11px;color:#5b6f62;}
+.tnp-tbl{width:100%;border-collapse:collapse;font-size:11.5px;border:1px solid #bbf7d0;}
+.tnp-tbl th{background:#14532d;color:#fff;padding:7px 6px;font-weight:700;text-align:left;font-size:11.5px;}
+.tnp-tbl td{padding:6px;border-bottom:1px solid #d1fae5;vertical-align:middle;}
+.tnp-tbl tr:nth-child(even) td{background:#f7fef9;}
+.tnp-tbl .ph{width:34px;height:34px;border-radius:50%;object-fit:cover;display:block;}
+.tnp-tbl .phd{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.tnp-tbl tfoot td{background:#dcfce7;font-weight:800;color:#14532d;border-top:2px solid #16a34a;}
+.tnp-pb{page-break-before:always;break-before:page;}
+`;
+(function injectTnpCss() { if (document.getElementById('tnpCss')) return; const st = document.createElement('style'); st.id = 'tnpCss'; st.textContent = TNP_CSS; document.head.appendChild(st); })();
+function _tnpHead(docTitle, docNo) {
+  const logo = new URL('assets/logo.png', location.href).href;
+  return '<div class="tnp-head"><img class="tnp-logo" src="' + logo + '" alt="" onerror="this.style.display=\'none\'">' +
+    '<div><h1>' + _esc(settings.mktName || '') + '</h1><div class="tnp-sub">' + _esc(settings.mktAddress || '') + '</div><div class="tnp-sub">ফোন : ' + _esc(settings.mktPhone || '') + '</div></div>' +
+    '<div class="tnp-doc"><b>' + (docNo ? 'নং: ' + _esc(docNo) : '') + '</b>তারিখ: ' + fmtDate(new Date()) + '</div></div>' +
+    '<div class="tnp-title"><span>' + _esc(docTitle) + '</span></div>';
+}
+function _tnpRow(k, v) { return '<div class="tnp-row"><span class="k">' + k + '</span><span class="v">' + (v === '' || v == null ? '-' : v) + '</span></div>'; }
+function _tnpStatus(tn) { const st = getAgreementStatus(tn); return { label: st.label, cls: st.cls === 'badge-green' ? 'g' : st.cls === 'badge-yellow' ? 'y' : st.cls === 'badge-red' ? 'r' : 'n' }; }
+function tnDossierBody(tn, o) {
+  o = o || {};
+  const st = _tnpStatus(tn), now = new Date(), er = effectiveRent(tn, _BNM[now.getMonth()], now.getFullYear());
+  const ded = tn.monthlyDeduction || tn.deduction || 0, rem = _lfRemaining(tn), vl = validityLabel(tn.startDate, tn.endDate);
+  const photo = tn.photo ? '<img class="tnp-photo" src="' + tn.photo + '" alt="">' : '<div class="tnp-photo ph">' + _esc((tn.name || '?').charAt(0)) + '</div>';
+  let h = '<div class="tnp">' + _tnpHead(o.title || 'ভাড়াটিয়ার তথ্য পত্র', tn.serial ? String(tn.serial).padStart(3, '0') : '');
+  if (o.rec) {
+    const r = o.rec;
+    h += '<div class="tnp-card" style="margin-bottom:12px;"><h3>নবায়নের বিবরণ</h3>' +
+      _tnpRow('নবায়নের তারিখ', fmtDate(r.date)) +
+      _tnpRow('নতুন চুক্তির মেয়াদ', fmtDate(r.newStart) + ' → ' + fmtDate(r.newEnd) + (validityLabel(r.newStart, r.newEnd) ? ' (' + validityLabel(r.newStart, r.newEnd) + ')' : '')) +
+      _tnpRow('মাসিক ভাড়া', _lfMoney(r.newRent) + (r.oldRent != null && r.oldRent !== r.newRent ? ' (আগে ' + _lfMoney(r.oldRent) + ')' : '')) +
+      _tnpRow('প্রতি নতুন বছরে ভাড়া বৃদ্ধি', r.increase ? _lfMoney(r.increase) : '-') +
+      _tnpRow('পূর্বের অবশিষ্ট অগ্রিম', _lfMoney(r.oldAdvance)) + _tnpRow('এই নবায়নে নতুন অগ্রিম জমা', _lfMoney(r.extraAdvance)) +
+      _tnpRow('মোট অগ্রিম', '<b style="color:#15803d;">' + _lfMoney(r.totalAdvance) + '</b>') + _tnpRow('মাসিক কর্তন', r.deduction ? _lfMoney(r.deduction) : '-') +
+      (r.note ? _tnpRow('মন্তব্য', _esc(r.note)) : '') + '</div>';
+  }
+  h += '<div class="tnp-profile">' + photo + '<div style="flex:1;min-width:0;"><div class="tnp-name">' + _esc(tn.name) + '</div>' +
+    '<div class="tnp-meta">📞 ' + _esc(tn.mobile || '-') + (tn.nid ? ' &nbsp;•&nbsp; এনআইডি: ' + _esc(tn.nid) : '') + '</div>' +
+    '<div class="tnp-chips"><span class="tnp-chip g">দোকান ' + _esc(tn.shop || '-') + '</span><span class="tnp-chip">' + _esc(tn.floor || '-') + '</span><span class="tnp-chip ' + st.cls + '">' + _esc(tn.archived ? 'পুরাতন ভাড়াটিয়া' : st.label) + '</span></div></div></div>';
+  h += '<div class="tnp-grid">' +
+    '<div class="tnp-card"><h3>ব্যক্তিগত তথ্য</h3>' + _tnpRow('নাম', _esc(tn.name)) + _tnpRow('মোবাইল', _esc(tn.mobile)) + _tnpRow('এনআইডি নম্বর', _esc(tn.nid)) + _tnpRow('ঠিকানা', _esc(tn.address)) + _tnpRow('মন্তব্য', _esc(tn.notes)) + '</div>' +
+    '<div class="tnp-card"><h3>দোকান ও ভাড়া</h3>' + _tnpRow('দোকান নং', _esc(tn.shop)) + _tnpRow('ফ্লোর', _esc(tn.floor)) + _tnpRow('নির্ধারিত ভাড়া', _lfMoney(tn.rent)) +
+      _tnpRow('বর্তমান মাসিক ভাড়া', '<b style="color:#15803d;">' + _lfMoney(er) + '</b>') + _tnpRow('বার্ষিক ভাড়া বৃদ্ধি', tn.annualIncrease > 0 ? _lfMoney(tn.annualIncrease) : '-') + '</div>' +
+    '<div class="tnp-card"><h3>চুক্তির মেয়াদ</h3>' + _tnpRow('চুক্তি শুরু', fmtDate(tn.startDate)) + _tnpRow('চুক্তি শেষ', fmtDate(tn.endDate)) + _tnpRow('মেয়াদ', vl) + _tnpRow('অবস্থা', _esc(tn.archived ? 'পুরাতন ভাড়াটিয়া' : st.label)) +
+      (tn.archivedAt ? _tnpRow('পুরাতন তালিকায় সরানো', fmtDate(tn.archivedAt)) : '') + '</div>' +
+    '<div class="tnp-card"><h3>অগ্রিম হিসাব</h3>' + _tnpRow('মোট অগ্রিম', _lfMoney(tn.advance)) + _tnpRow('মাসিক কর্তন', ded ? _lfMoney(ded) : '-') + _tnpRow('অবশিষ্ট অগ্রিম', '<b style="color:#15803d;">' + _lfMoney(rem) + '</b>') + '</div></div>';
+  if (tn.nidFrontUrl || tn.nidBackUrl) {
+    const nid = (src, cap) => src ? '<div><div class="c">' + cap + '</div><img src="' + src + '" alt=""></div>' : '';
+    h += '<div class="tnp-card full" style="margin-top:12px;"><h3>জাতীয় পরিচয়পত্র (এনআইডি)</h3><div class="tnp-nid">' + nid(tn.nidFrontUrl, 'সামনের দিক') + nid(tn.nidBackUrl, 'পিছনের দিক') + '</div></div>';
+  }
+  if (o.agreements && o.agreements.length) {
+    h += '<div class="tnp-card full" style="margin-top:12px;"><h3>আপলোডকৃত চুক্তিপত্র</h3>' +
+      o.agreements.map(a => _tnpRow(_esc(a.fileName || 'চুক্তি'), (a.type === 'renewal' ? 'নবায়ন' : 'নতুন') + ' • ' + (fmtDate(a.startDate) || '-') + ' → ' + (fmtDate(a.endDate) || '-'))).join('') + '</div>';
+    (o.agImages || []).forEach(x => { h += '<div class="tnp-pb" style="text-align:center;"><div class="c" style="font-weight:700;margin:6px 0;">' + _esc(x.name) + '</div><img src="' + x.src + '" style="max-width:100%;max-height:1000px;border:1px solid #bbf7d0;" alt=""></div>'; });
+  }
+  if (o.sign) {
+    h += '<div class="tnp-sign"><div><div style="height:42px;"></div><div class="ln">ভাড়াটিয়ার স্বাক্ষর</div></div><div>' + ((typeof ownerSignature !== 'undefined' && ownerSignature) ? '<img src="' + ownerSignature + '" alt="">' : '<div style="height:42px;"></div>') + '<div class="ln">জমিদারের স্বাক্ষর</div></div></div>';
+  }
+  return h + '<div class="tnp-foot"><span>' + _esc(settings.mktName || '') + '</span><span>প্রিন্টের তারিখ: ' + fmtDate(new Date()) + '</span></div></div>';
+}
+// সব ভাড়াটিয়া: সারসংক্ষেপ টেবিল (+ ঐচ্ছিক প্রতিজনের বিস্তারিত পাতা)
+function _tnAllList() { return (DB.get('tenants') || []).filter(t => !t.archived).sort((a, b) => String(a.shop || '').localeCompare(String(b.shop || ''), undefined, { numeric: true })); }
+function tnAllBody(o) {
+  o = o || {};
+  const list = _tnAllList(), now = new Date(), money = _lfMoney;
+  const rentOf = t => effectiveRent(t, _BNM[now.getMonth()], now.getFullYear());
+  const totRent = list.reduce((a, t) => a + rentOf(t), 0), totAdv = list.reduce((a, t) => a + (t.advance || 0), 0), totRem = list.reduce((a, t) => a + _lfRemaining(t), 0);
+  let h = '<div class="tnp">' + _tnpHead('সকল ভাড়াটিয়ার তথ্য', '') +
+    '<div class="tnp-stats"><div class="tnp-stat"><b>' + _lfDigits(list.length) + ' জন</b><span>মোট ভাড়াটিয়া</span></div><div class="tnp-stat"><b>' + money(totRent) + '</b><span>মোট মাসিক ভাড়া</span></div><div class="tnp-stat"><b>' + money(totAdv) + '</b><span>মোট অগ্রিম</span></div></div>' +
+    '<table class="tnp-tbl"><thead><tr><th>#</th><th>ছবি</th><th>ভাড়াটিয়া</th><th>দোকান</th><th style="text-align:right;">মাসিক ভাড়া</th><th style="text-align:right;">অগ্রিম / অবশিষ্ট</th><th>চুক্তির মেয়াদ</th><th>অবস্থা</th></tr></thead><tbody>' +
+    list.map((t, i) => {
+      const st = _tnpStatus(t);
+      return '<tr><td>' + _lfDigits(i + 1) + '</td><td>' + (t.photo ? '<img class="ph" src="' + t.photo + '" alt="">' : '<div class="phd">' + _esc((t.name || '?').charAt(0)) + '</div>') + '</td>' +
+        '<td><b>' + _esc(t.name) + '</b><div style="color:#5b6f62;font-size:10.5px;">' + _esc(t.mobile || '') + (t.nid ? ' • NID ' + _esc(t.nid) : '') + '</div></td>' +
+        '<td><b>' + _esc(t.shop || '-') + '</b><div style="color:#5b6f62;font-size:10.5px;">' + _esc(t.floor || '') + '</div></td>' +
+        '<td style="text-align:right;font-weight:700;">' + money(rentOf(t)) + '</td><td style="text-align:right;">' + money(t.advance) + '<div style="color:#15803d;font-size:10.5px;">অবশিষ্ট ' + money(_lfRemaining(t)) + '</div></td>' +
+        '<td style="font-size:10.5px;">' + (fmtDate(t.startDate) || '-') + '<br>→ ' + (fmtDate(t.endDate) || '-') + '</td><td><span class="tnp-chip ' + st.cls + '" style="font-size:10px;padding:2px 8px;">' + _esc(st.label) + '</span></td></tr>';
+    }).join('') + '</tbody><tfoot><tr><td colspan="4">মোট</td><td style="text-align:right;">' + money(totRent) + '</td><td style="text-align:right;">' + money(totAdv) + '<div style="font-size:10.5px;font-weight:600;">অবশিষ্ট ' + money(totRem) + '</div></td><td colspan="2"></td></tr></tfoot></table>' +
+    '<div class="tnp-foot"><span>' + _esc(settings.mktName || '') + '</span><span>প্রিন্টের তারিখ: ' + fmtDate(now) + '</span></div></div>';
+  if (o.details) list.forEach(t => { h += '<div class="tnp-pb">' + tnDossierBody(t, { title: 'ভাড়াটিয়ার তথ্য পত্র' }) + '</div>'; });
+  return h;
+}
+let _tnAllDetails = false;
+function tnAllView() {
+  let m = document.getElementById('tnAllModal');
+  if (!m) {
+    m = document.createElement('div'); m.className = 'modal-overlay'; m.id = 'tnAllModal';
+    m.innerHTML = '<div class="modal" style="max-width:980px;"><div class="modal-header"><h3><i class="fas fa-users" style="color:var(--accent);margin-right:6px;"></i> সকল ভাড়াটিয়ার তথ্য</h3><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+      '<label style="font-size:.78rem;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="tnAllDet" onchange="_tnAllDetails=this.checked;tnAllRender()"> প্রতিজনের বিস্তারিত পাতাসহ</label>' +
+      '<button class="btn btn-primary btn-sm" onclick="tnAllPrint()"><i class="fas fa-print"></i> প্রিন্ট</button><button class="btn btn-sm" style="background:#25d366;color:#fff;" onclick="tnAllWhatsApp()"><i class="fab fa-whatsapp"></i> WhatsApp</button>' +
+      '<button onclick="closeModal(\'tnAllModal\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button></div></div><div class="modal-body" id="tnAllBodyBox" style="background:#fff;max-height:75vh;overflow:auto;"></div></div>';
+    document.body.appendChild(m);
+  }
+  tnAllRender(); openModal('tnAllModal');
+}
+function tnAllRender() { const b = document.getElementById('tnAllBodyBox'); if (b) b.innerHTML = '<div id="tnAllShot">' + tnAllBody({ details: false }) + '</div>' + (_tnAllDetails ? tnAllBody({ details: true }).split('<div class="tnp-pb">').slice(1).map(x => '<div class="tnp-pb" style="margin-top:24px;border-top:2px dashed #bbf7d0;padding-top:14px;">' + x).join('') : ''); }
+function tnAllPrint() { lfPrintHtml(tnAllBody({ details: _tnAllDetails }), 'সকল ভাড়াটিয়া'); }
+async function tnAllWhatsApp() {
+  const list = _tnAllList(), now = new Date();
+  const text = '📋 *ভাড়াটিয়া তালিকা — ' + (settings.mktName || '') + '*\nমোট: ' + list.length + ' জন\n\n' +
+    list.map((t, i) => (i + 1) + '. ' + t.name + ' — দোকান ' + (t.shop || '-') + ' — ভাড়া ' + _lfMoney(effectiveRent(t, _BNM[now.getMonth()], now.getFullYear())) + ' — ' + (t.mobile || '')).join('\n') + '\n\nধন্যবাদ।';
+  try {
+    if (typeof html2canvas !== 'undefined' && navigator.share && navigator.canShare) {
+      showToast('ছবি তৈরি হচ্ছে...');
+      const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-99999px;top:0;width:900px;background:#fff;';
+      host.innerHTML = tnAllBody({ details: false }); document.body.appendChild(host);
+      let file;
+      try { const c = await html2canvas(host, { scale: 1.5, backgroundColor: '#fff', useCORS: true, logging: false }); const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92)); file = new File([blob], 'tenants_list.jpg', { type: 'image/jpeg' }); }
+      finally { document.body.removeChild(host); }
+      if (file && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'ভাড়াটিয়া তালিকা', text: '📋 ভাড়াটিয়া তালিকা — ' + (settings.mktName || '') }); return; }
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; console.warn(e); }
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+function lfPrintHtml(body, title) {
+  const w = window.open('', '_blank', 'width=900,height=800');
+  if (!w) { showToast('Pop-up allow korun', 'warning'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + _esc(title) + '</title><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">' +
+    '<style>'+TNP_CSS+'body{margin:10mm;}@page{size:A4;margin:8mm}@media print{body{margin:4mm}}</style></head><body>' + body +
+    '<scr' + 'ipt>(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){window.print();},600);});</scr' + 'ipt></body></html>');
+  w.document.close();
+}
+async function _lfAgImages(list) {
+  const out = [];
+  for (const a of list) {
+    if (a.fileType && a.fileType !== 'application/pdf') {
+      try { const src = await loadAgreementDataUrl(a.id, a.chunks || 1); if (src) out.push({ name: a.fileName || 'চুক্তি', src }); } catch (e) {}
+    }
+  }
+  return out;
+}
+
+// ── ১. ভাড়াটিয়া মুছুন → পুরাতন ভাড়াটিয়া ──
+async function _archiveCore(tenantId) {
+  const tn = tenants.find(x => x.id === tenantId); if (!tn) return null;
+  const data = { ...tn, archived: true, archivedAt: new Date().toISOString() };
+  await FDB.save('tenants', tenantId, data);
+  await FDB.save('archivedTenants', tenantId, data);
+  // দোকান আবার খালি (যদি আর কেউ না থাকে)
+  tenants = await FDB.getAll('tenants');
+  shops = DB.get('shops'); await syncShopStatus(tn.shop);
+  return data;
+}
+async function archiveTenant(tenantId) {   // ছাড়ার আবেদন থেকেও এটাই চলে
+  return tenantMoveToOld(tenantId);
+}
+async function tenantMoveToOld(tenantId) {
+  const tn = tenants.find(x => x.id === tenantId); if (!tn) return;
+  if (!await uiConfirm('"' + tn.name + '" কে ভাড়াটিয়া সেকশন থেকে মুছে "পুরাতন ভাড়াটিয়া"-তে সরাবেন?\n\nতার সব তথ্য, ছবি ও আপলোডকৃত চুক্তিপত্র পুরাতন ভাড়াটিয়া ফোল্ডারে সেভ থাকবে। দোকানটি খালি হয়ে যাবে।')) return;
+  showSyncOverlay(true, 'পুরাতন ভাড়াটিয়ায় সরানো হচ্ছে...');
+  try {
+    await _archiveCore(tenantId);
+    addActivity(tn.name + ' পুরাতন ভাড়াটিয়ায় সরানো হয়েছে', 'archive', '#6b7280');
+    showToast(tn.name + ' পুরাতন ভাড়াটিয়ায় সরানো হয়েছে ✅ (সব তথ্য সংরক্ষিত)');
+  } finally { showSyncOverlay(false); }
+  renderAgreements(); if (typeof renderTenants === 'function') renderTenants(); if (typeof renderShops === 'function') renderShops(); if (typeof updateNotifications === 'function') updateNotifications();
+  if (document.getElementById('agreementTabLeave') && document.getElementById('agreementTabLeave').style.display !== 'none') renderLeaveRequests();
+}
+const _oldOpen = {};
+async function renderArchivedTenants() {
+  const el = document.getElementById('archivedTenantList'); if (!el) return;
+  let list = [];
+  try {
+    if (FIREBASE_READY) { const snap = await db_fire.collection('archivedTenants').get(); list = snap.docs.map(d => ({ id: d.id, ...d.data() })); }
+    else list = JSON.parse(localStorage.getItem('archivedTenants') || '[]');
+  } catch (e) { list = JSON.parse(localStorage.getItem('archivedTenants') || '[]'); }
+  list.sort((a, b) => (b.archivedAt || '').localeCompare(a.archivedAt || ''));
+  if (!list.length) { el.innerHTML = '<p style="color:var(--text-muted);font-size:.83rem;text-align:center;padding:20px;">কোনো পুরাতন ভাড়াটিয়া নেই</p>'; return; }
+  el.innerHTML = list.map(t => {
+    const open = !!_oldOpen[t.id];
+    const ph = t.photo ? '<img src="' + t.photo + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">' : '<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#14532d,#16a34a);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;">' + _esc((t.name || '?').charAt(0)) + '</div>';
+    return '<div style="border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;">' +
+      '<div onclick="oldFolderToggle(\'' + t.id + '\')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;background:var(--bg-primary);">' +
+      '<i class="fas fa-folder' + (open ? '-open' : '') + '" style="color:#d97706;font-size:1.3rem;"></i>' + ph +
+      '<div style="flex:1;min-width:0;"><div style="font-weight:700;">' + _esc(t.name) + '</div><div style="font-size:.76rem;color:var(--text-muted);">দোকান ' + _esc(t.shop) + ' • ' + _esc(t.mobile) + ' • সরানো: ' + fmtDate(t.archivedAt) + '</div></div>' +
+      '<i class="fas fa-chevron-' + (open ? 'up' : 'down') + '" style="color:var(--text-muted);"></i></div>' +
+      (open ? '<div id="oldBody_' + t.id + '" style="padding:14px;border-top:1px solid var(--border);"><p style="color:var(--text-muted);font-size:.82rem;">লোড হচ্ছে...</p></div>' : '') + '</div>';
+  }).join('');
+  Object.keys(_oldOpen).filter(id => _oldOpen[id]).forEach(id => { const t = list.find(x => x.id === id); if (t) oldFolderFill(t); });
+}
+function oldFolderToggle(id) { _oldOpen[id] = !_oldOpen[id]; renderArchivedTenants(); }
+async function oldFolderFill(t) {
+  const box = document.getElementById('oldBody_' + t.id); if (!box) return;
+  const ags = await getAgreementList(t.id);
+  const nid = (src, cap) => src ? '<div style="flex:1;min-width:150px;text-align:center;"><div style="font-size:.74rem;color:var(--text-muted);margin-bottom:3px;">' + cap + '</div><img src="' + src + '" style="width:100%;max-height:150px;object-fit:contain;border:1px solid var(--border);border-radius:6px;"></div>' : '';
+  const info = [['নাম', t.name], ['মোবাইল', t.mobile], ['এনআইডি', t.nid], ['দোকান / ফ্লোর', (t.shop || '-') + ' / ' + (t.floor || '-')], ['ঠিকানা', t.address], ['মাসিক ভাড়া', _lfMoney(t.rent)], ['অগ্রিম', _lfMoney(t.advance)], ['চুক্তি', fmtDate(t.startDate) + ' → ' + fmtDate(t.endDate)], ['মন্তব্য', t.notes]]
+    .map(r => '<div style="display:flex;gap:8px;padding:3px 0;font-size:.82rem;"><span style="min-width:110px;color:var(--text-muted);">' + r[0] + '</span><span style="font-weight:600;">' + _esc(r[1] == null || r[1] === '' ? '-' : r[1]) + '</span></div>').join('');
+  box.innerHTML = info +
+    ((t.nidFrontUrl || t.nidBackUrl) ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;">' + nid(t.nidFrontUrl, 'এনআইডি — সামনে') + nid(t.nidBackUrl, 'এনআইডি — পিছনে') + '</div>' : '') +
+    '<div style="font-weight:700;font-size:.84rem;margin:12px 0 6px;"><i class="fas fa-file-contract" style="color:var(--accent);"></i> আপলোডকৃত চুক্তিপত্র (' + _lfDigits(ags.length) + ')</div>' +
+    (ags.length ? ags.map(a => '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;"><div style="font-size:.8rem;"><i class="fas fa-' + (a.fileType === 'application/pdf' ? 'file-pdf' : 'image') + '" style="color:' + (a.fileType === 'application/pdf' ? '#dc2626' : '#2563eb') + ';margin-right:6px;"></i><b>' + _esc(a.fileName || 'চুক্তি') + '</b><div style="font-size:.72rem;color:var(--text-muted);">' + (a.type === 'renewal' ? 'নবায়ন' : 'নতুন') + ' • ' + (fmtDate(a.startDate) || '-') + ' → ' + (fmtDate(a.endDate) || '-') + '</div></div>' +
+      '<div style="display:flex;gap:5px;"><button class="btn btn-primary btn-sm" onclick="oldViewAgreement(\'' + a.id + '\',' + (a.chunks || 1) + ',\'' + (a.fileType || '') + '\')"><i class="fas fa-eye"></i> দেখুন</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="downloadAgreementFile(\'' + a.id + '\',' + (a.chunks || 1) + ',\'' + encodeURIComponent(a.fileName || 'agreement') + '\')"><i class="fas fa-download"></i></button></div></div>').join('')
+      : '<p style="font-size:.78rem;color:var(--text-muted);">কোনো চুক্তিপত্র আপলোড করা ছিল না</p>') +
+    '<div id="oldPrev_' + t.id + '"></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;"><button class="btn btn-primary btn-sm" onclick="oldTenantPrint(\'' + t.id + '\')"><i class="fas fa-print"></i> প্রিন্ট</button>' +
+    '<button class="btn btn-danger btn-sm" onclick="oldTenantForever(\'' + t.id + '\')"><i class="fas fa-trash"></i> Forever delete</button></div>';
+}
+async function oldViewAgreement(agId, chunks, fileType) {
+  // ফাইল দেখার এরিয়া: পুরাতন ফোল্ডারের নিচে
+  const dataUrl = await loadAgreementDataUrl(agId, chunks);
+  if (!dataUrl) { showToast('ফাইল পাওয়া যায়নি', 'error'); return; }
+  if (fileType === 'application/pdf') { const url = URL.createObjectURL(await (await fetch(dataUrl)).blob()); window.open(url, '_blank'); }
+  else { const w = window.open('', '_blank'); if (w) { w.document.write('<img src="' + dataUrl + '" style="max-width:100%">'); w.document.close(); } }
+}
+async function oldTenantPrint(id) {
+  const t = _lfFind(id); if (!t) return;
+  const ags = await getAgreementList(id);
+  const imgs = await _lfAgImages(ags);
+  lfPrintHtml(tnDossierBody(t, { title: 'পুরাতন ভাড়াটিয়ার তথ্য', agreements: ags, agImages: imgs }), 'পুরাতন ভাড়াটিয়া - ' + (t.name || ''));
+}
+async function _lfDeleteAgreementCore(a, tenantId) {
+  if (FIREBASE_READY) {
+    try {
+      const ref = db_fire.collection('agreements').doc(a.id), snap = await ref.collection('chunks').get();
+      const batch = db_fire.batch(); snap.docs.forEach(d => batch.delete(d.ref)); await batch.commit();
+    } catch (e) { console.warn(e); }
+  }
+  await FDB.delete('agreements', a.id);
+  try { localStorage.removeItem('agfile_' + a.id); } catch (e) {}
+}
+async function oldTenantForever(id) {
+  const t = _lfFind(id); if (!t) return;
+  if (!await uiConfirm('"' + t.name + '" কে চিরতরে মুছে ফেলবেন?\n\nতার সব তথ্য, ছবি, এনআইডি ও আপলোডকৃত সব চুক্তিপত্র স্থায়ীভাবে মুছে যাবে — আর ফেরত আনা যাবে না।\n(আগের ভাড়ার রসিদ/হিসাব মুছবে না।)')) return;
+  if (!await uiConfirm('শেষবার নিশ্চিত করুন: "' + t.name + '" চিরতরে মুছে ফেলা হবে।')) return;
+  showSyncOverlay(true, 'চিরতরে মুছে ফেলা হচ্ছে...');
+  try {
+    const ags = await getAgreementList(id);
+    for (const a of ags) await _lfDeleteAgreementCore(a, id);
+    try { localStorage.removeItem('agHistory_' + id); } catch (e) {}
+    await FDB.delete('archivedTenants', id);
+    await FDB.delete('tenants', id);
+    tenants = await FDB.getAll('tenants');
+    delete _oldOpen[id];
+    addActivity('চিরতরে মুছে ফেলা হয়েছে: ' + t.name, 'trash', '#dc2626');
+    showToast('চিরতরে মুছে ফেলা হয়েছে', 'error');
+  } catch (e) { console.error(e); showToast('মুছতে সমস্যা: ' + (e.message || e), 'error'); }
+  finally { showSyncOverlay(false); }
+  renderArchivedTenants();
+}
+
+// ── ২. নবায়ন ──
+let _rn = null, _rnEndManual = false;
+function _rnEl(id) { return document.getElementById(id); }
+function _rnEnsureModal() {
+  if (_rnEl('renewModal')) return;
+  const m = document.createElement('div'); m.className = 'modal-overlay'; m.id = 'renewModal';
+  const f = (id, label, extra) => '<div class="form-group"><label class="form-label">' + label + '</label><input id="' + id + '" class="form-input" ' + (extra || '') + '></div>';
+  m.innerHTML = '<div class="modal" style="max-width:560px;"><div class="modal-header"><h3><i class="fas fa-sync" style="color:var(--accent);margin-right:6px;"></i> চুক্তি নবায়ন</h3><button onclick="closeModal(\'renewModal\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button></div>' +
+    '<div class="modal-body"><div id="rnWho" style="font-weight:700;margin-bottom:10px;"></div><div class="form-grid">' +
+    f('rnStart', 'নবায়ন শুরু', 'type="date" onchange="rnRecalc()"') +
+    '<div class="form-group"><label class="form-label">মেয়াদ</label><select id="rnValidity" class="form-input form-select" onchange="rnRecalc()"><option value="6">৬ মাস</option><option value="12">১ বছর</option><option value="24" selected>২ বছর</option><option value="36">৩ বছর</option><option value="60">৫ বছর</option><option value="custom">নিজে তারিখ দিন</option></select></div>' +
+    f('rnEnd', 'নবায়ন শেষ', 'type="date" onchange="rnEndEdited()"') + f('rnRent', 'নতুন মাসিক ভাড়া (৳)', 'type="number" step="any" oninput="rnSum()"') +
+    f('rnIncrease', 'প্রতি নতুন বছরে ভাড়া বৃদ্ধি (৳)', 'type="number" step="any"') + f('rnExtra', 'নতুন অগ্রিম জমা (৳)', 'type="number" step="any" oninput="rnSum()"') +
+    f('rnDeduct', 'মাসিক কর্তন (৳)', 'type="number" step="any"') +
+    '<div class="form-group" style="grid-column:1/-1;"><label class="form-label">মন্তব্য</label><textarea id="rnNote" class="form-input" rows="2"></textarea></div></div>' +
+    '<div id="rnSumBox" style="background:var(--bg-primary);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:.82rem;"></div></div>' +
+    '<div class="modal-footer"><button onclick="closeModal(\'renewModal\')" class="btn btn-ghost">বাতিল</button><button onclick="rnSave()" class="btn btn-primary"><i class="fas fa-check"></i> নবায়ন সম্পন্ন করুন</button></div></div>';
+  document.body.appendChild(m);
+  if (typeof flatpickr !== 'undefined') ['rnStart', 'rnEnd'].forEach(id => flatpickr(_rnEl(id), { dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: false, disableMobile: true, onChange: [() => { if (id === 'rnEnd') rnEndEdited(); else rnRecalc(); }] }));
+}
+function _rnSet(id, v) { const el = _rnEl(id); if (!el) return; if (el._flatpickr) el._flatpickr.setDate(v || null, false, 'Y-m-d'); else el.value = v; }
+function openRenewal(tenantId) {
+  const tn = tenants.find(x => x.id === tenantId); if (!tn) return;
+  _rnEnsureModal(); _rn = tn.id; _rnEndManual = false;
+  _rnEl('rnWho').textContent = tn.name + ' — দোকান ' + (tn.shop || '');
+  // পুরনো মেয়াদ শেষের পরের দিন; শেষ না থাকলে/অনেক আগে হলে আজ
+  let start = isoLocal(new Date());
+  if (tn.endDate) { const d = new Date(tn.endDate + 'T00:00:00'); d.setDate(d.getDate() + 1); if (!isNaN(d)) start = isoLocal(d); }
+  _rnSet('rnStart', start);
+  _rnEl('rnValidity').value = '24';
+  const nowRent = effectiveRent(tn, _BNM[new Date().getMonth()], new Date().getFullYear());
+  _rnEl('rnRent').value = nowRent || tn.rent || ''; _rnEl('rnIncrease').value = tn.annualIncrease || '';
+  _rnEl('rnExtra').value = ''; _rnEl('rnDeduct').value = tn.monthlyDeduction || tn.deduction || ''; _rnEl('rnNote').value = '';
+  rnRecalc(); openModal('renewModal');
+}
+function rnRecalc() {
+  const sel = _rnEl('rnValidity'); if (!sel) return;
+  if (sel.value !== 'custom') {
+    const s = _rnEl('rnStart').value; if (s) { const d = new Date(s + 'T00:00:00'); d.setMonth(d.getMonth() + parseInt(sel.value, 10)); d.setDate(d.getDate() - 1); _rnSet('rnEnd', isoLocal(d)); }
+  }
+  rnSum();
+}
+function rnEndEdited() { const v = _rnEl('rnValidity'); if (v) v.value = 'custom'; rnSum(); }
+function rnSum() {
+  const tn = tenants.find(x => x.id === _rn); if (!tn) return;
+  const rem = _lfRemaining(tn), extra = parseFloat(_rnEl('rnExtra').value) || 0;
+  _rnEl('rnSumBox').innerHTML = 'বর্তমান অবশিষ্ট অগ্রিম: <b>' + _lfMoney(rem) + '</b> + নতুন জমা <b>' + _lfMoney(extra) + '</b> = মোট অগ্রিম <b>' + _lfMoney(rem + extra) + '</b><br>মেয়াদ: <b>' + (validityLabel(_rnEl('rnStart').value, _rnEl('rnEnd').value) || '-') + '</b>';
+}
+async function rnSave() {
+  const tn = tenants.find(x => x.id === _rn); if (!tn) return;
+  const newStart = _rnEl('rnStart').value, newEnd = _rnEl('rnEnd').value, newRent = parseFloat(_rnEl('rnRent').value) || 0;
+  if (!newStart || !newEnd || newEnd < newStart) { showToast('নবায়নের শুরু ও শেষ তারিখ ঠিক করে দিন', 'error'); return; }
+  if (!newRent) { showToast('নতুন মাসিক ভাড়া দিন', 'error'); return; }
+  const oldAdvance = _lfRemaining(tn), extra = parseFloat(_rnEl('rnExtra').value) || 0, ded = parseFloat(_rnEl('rnDeduct').value) || 0;
+  const rec = { id: 'RN' + Date.now(), date: isoLocal(new Date()), oldStart: tn.startDate || '', oldEnd: tn.endDate || '', oldRent: tn.rent || 0, newStart, newEnd, newRent,
+    increase: parseFloat(_rnEl('rnIncrease').value) || 0, oldAdvance, extraAdvance: extra, totalAdvance: oldAdvance + extra, deduction: ded, note: _rnEl('rnNote').value.trim() };
+  showSyncOverlay(true, 'নবায়ন সংরক্ষণ হচ্ছে...');
+  try {
+    await FDB.save('tenants', tn.id, { startDate: newStart, endDate: newEnd, rent: newRent, annualIncrease: rec.increase, advance: rec.totalAdvance, monthlyDeduction: ded, deduction: ded, renewedAt: new Date().toISOString(), renewals: (tn.renewals || []).concat([rec]) });
+    tenants = await FDB.getAll('tenants');
+    addActivity('চুক্তি নবায়ন: ' + tn.name, 'sync', '#2563eb');
+  } catch (e) { console.error(e); showToast('নবায়ন সংরক্ষণে সমস্যা: ' + (e.message || e), 'error'); showSyncOverlay(false); return; }
+  showSyncOverlay(false);
+  closeModal('renewModal'); renderAgreements(); if (typeof renderTenants === 'function') renderTenants(); if (typeof updateNotifications === 'function') updateNotifications();
+  showToast('চুক্তি নবায়ন হয়েছে ✅');
+  rnShow(tn.id, rec.id);
+}
+// নবায়নের সারসংক্ষেপ: প্রিন্ট + WhatsApp
+function rnShow(tenantId, recId) {
+  const tn = tenants.find(x => x.id === tenantId); if (!tn) return;
+  const recs = tn.renewals || [], rec = recs.find(r => r.id === recId) || recs[recs.length - 1]; if (!rec) { showToast('নবায়নের তথ্য নেই', 'error'); return; }
+  let m = _rnEl('renewShowModal');
+  if (!m) {
+    m = document.createElement('div'); m.className = 'modal-overlay'; m.id = 'renewShowModal';
+    m.innerHTML = '<div class="modal" style="max-width:760px;"><div class="modal-header"><h3 id="rsTitle"></h3><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" id="rsPrint"><i class="fas fa-print"></i> প্রিন্ট</button><button class="btn btn-sm" style="background:#25d366;color:#fff;" id="rsWa"><i class="fab fa-whatsapp"></i> WhatsApp</button><button class="btn btn-outline btn-sm" id="rsUp"><i class="fas fa-upload"></i> চুক্তিপত্র আপলোড</button><button onclick="closeModal(\'renewShowModal\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button></div></div><div class="modal-body" id="rsBody" style="background:#fff;"></div></div>';
+    document.body.appendChild(m);
+  }
+  _rnEl('rsTitle').textContent = 'নবায়ন — ' + tn.name;
+  _rnEl('rsBody').innerHTML = tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec });
+  _rnEl('rsPrint').onclick = () => lfPrintHtml(tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec }), 'নবায়ন - ' + tn.name);
+  _rnEl('rsWa').onclick = () => rnWhatsApp(tn.id, rec.id);
+  _rnEl('rsUp').onclick = () => { closeModal('renewShowModal'); openAgreementUpload(tn.id); const t = _rnEl('agUploadType'); if (t) t.value = 'renewal'; _rnSetUpload(rec); };
+  openModal('renewShowModal');
+}
+function _rnSetUpload(rec) {
+  const v = _rnEl('agValidity'); if (v) v.value = 'custom';
+  const s = _rnEl('agStartDate'), e = _rnEl('agEndDate'); if (s) s.value = rec.newStart; if (e) e.value = rec.newEnd;
+}
+function rnLatest(tenantId) { rnShow(tenantId); }
+async function rnWhatsApp(tenantId, recId) {
+  const tn = tenants.find(x => x.id === tenantId); if (!tn) return;
+  const rec = (tn.renewals || []).find(r => r.id === recId) || (tn.renewals || []).slice(-1)[0]; if (!rec) return;
+  const mob = String(tn.mobile || '').replace(/[^0-9]/g, '');
+  const text = '📋 *চুক্তি নবায়ন — ' + (settings.mktName || '') + '*\n\nনাম: ' + tn.name + '\nদোকান: ' + (tn.shop || '') + '\nনবায়ন মেয়াদ: ' + fmtDate(rec.newStart) + ' থেকে ' + fmtDate(rec.newEnd) + (validityLabel(rec.newStart, rec.newEnd) ? ' (' + validityLabel(rec.newStart, rec.newEnd) + ')' : '') +
+    '\nমাসিক ভাড়া: ' + _lfMoney(rec.newRent) + (rec.increase ? '\nপ্রতি নতুন বছরে বৃদ্ধি: ' + _lfMoney(rec.increase) : '') + '\nনতুন অগ্রিম জমা: ' + _lfMoney(rec.extraAdvance) + '\nমোট অগ্রিম: ' + _lfMoney(rec.totalAdvance) + '\n\nধন্যবাদ।';
+  const url = 'https://wa.me/' + (mob ? (mob.startsWith('88') ? mob : '88' + mob) : '') + '?text=' + encodeURIComponent(text);
+  try {
+    if (typeof html2canvas !== 'undefined' && navigator.share && navigator.canShare) {
+      showToast('ছবি তৈরি হচ্ছে...');
+      const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-99999px;top:0;width:760px;background:#fff;';
+      host.innerHTML = tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec }); document.body.appendChild(host);
+      let file;
+      try { const c = await html2canvas(host, { scale: 1.5, backgroundColor: '#fff', useCORS: true, logging: false }); const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92)); file = new File([blob], 'renewal_' + (tn.name || '') + '.jpg', { type: 'image/jpeg' }); }
+      finally { document.body.removeChild(host); }
+      if (file && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'চুক্তি নবায়ন - ' + tn.name, text }); return; }
     }
   } catch (e) { if (e && e.name === 'AbortError') return; console.warn(e); }
   window.open(url, '_blank');
