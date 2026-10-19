@@ -9,6 +9,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- Bengali Fonts - Properly Embedded -->
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700;800&family=Noto+Serif+Bengali:wght@400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -524,8 +525,8 @@ body.sidebar-collapsed .sidebar { width: 260px; transform: translateX(-260px); }
           <div style="font-size:.84rem;font-weight:700;"><i class="fas fa-users" style="color:var(--accent);margin-right:6px;"></i>সকল ভাড়াটিয়ার তথ্য একসাথে</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onclick="tnAllView()" class="btn btn-primary btn-sm"><i class="fas fa-eye"></i> দেখুন</button>
-            <button onclick="tnAllPrint()" class="btn btn-outline btn-sm"><i class="fas fa-print"></i> প্রিন্ট</button>
-            <button onclick="tnAllWhatsApp()" class="btn btn-sm" style="background:#25d366;color:#fff;"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+            <button onclick="tnAllPrint()" class="btn btn-primary btn-sm"><i class="fas fa-print"></i> প্রিন্ট</button>
+            <button onclick="tnAllWhatsApp()" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane"></i> WhatsApp পাঠান</button>
           </div>
         </div>
       </div>

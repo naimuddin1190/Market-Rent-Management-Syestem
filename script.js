@@ -948,8 +948,9 @@ function viewTenant(id) {
     '<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap;">'+
     '<button onclick="closeModal(\'tenantViewModal\');openTenantModal(\''+tn.id+'\')" class="btn btn-outline btn-sm"><i class="fas fa-edit"></i> সম্পাদনা</button>'+
     '<button onclick="printTenant(\''+tn.id+'\')" class="btn btn-primary btn-sm"><i class="fas fa-print"></i> প্রিন্ট</button>'+
+    '<button onclick="tnSendWhatsApp(\''+tn.id+'\')" class="btn btn-primary btn-sm"><i class="fas fa-paper-plane"></i> WhatsApp পাঠান</button>'+
     '<a href="tel:'+tn.mobile+'" class="btn btn-gray btn-sm"><i class="fas fa-phone"></i> কল</a>'+
-    '<a href="https://wa.me/88'+(tn.mobile||'').replace(/[^0-9]/g,'')+'" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff;"><i class="fab fa-whatsapp"></i></a>'+
+    '<button onclick="lfWaChat(\''+(tn.mobile||'')+'\')" class="btn btn-sm" style="background:#25d366;color:#fff;" title="ভাড়াটিয়ার সাথে সরাসরি WhatsApp চ্যাট"><i class="fab fa-whatsapp"></i></button>'+
     '</div></div></div>'+
     '<hr style="margin:16px 0;border-color:var(--border);">'+
     '<h4 style="font-weight:700;margin-bottom:10px;font-size:0.9rem;">সাম্প্রতিক পেমেন্ট</h4>'+recentPays;
@@ -1852,7 +1853,7 @@ function renderAgreements() {
       '<button onclick="openLeaveRequest(\''+tn.id+'\')" class="btn btn-warning btn-sm"><i class="fas fa-door-open"></i> ছাড়ার আবেদন</button>'+
       '<button onclick="openAgreementUpload(\''+tn.id+'\')" class="btn btn-ghost btn-sm"><i class="fas fa-upload"></i> আপলোড</button>'+
       '<button onclick="openAgreementView(\''+tn.id+'\')" class="btn btn-primary btn-sm"><i class="fas fa-file-pdf"></i> চুক্তি দেখুন</button>'+
-      '<a href="https://wa.me/88'+(tn.mobile||'').replace(/[^0-9]/g,'')+'" target="_blank" class="btn btn-sm" style="background:#25d366;color:#fff;"><i class="fab fa-whatsapp"></i></a>'+
+      '<button onclick="lfWaChat(\''+(tn.mobile||'')+'\')" class="btn btn-sm" style="background:#25d366;color:#fff;" title="সরাসরি WhatsApp চ্যাট"><i class="fab fa-whatsapp"></i></button>'+
       '<button onclick="tenantMoveToOld(\''+tn.id+'\')" class="btn btn-danger btn-sm" title="ভাড়াটিয়া সেকশন থেকে মুছে পুরাতন ভাড়াটিয়ায় রাখুন"><i class="fas fa-user-times"></i> ভাড়াটিয়া মুছুন</button>'+
       '</div></div>';
   }).join('') || '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);">কোনো সক্রিয় চুক্তি নেই।</div>';
@@ -4733,7 +4734,7 @@ function tnAllView() {
     m = document.createElement('div'); m.className = 'modal-overlay'; m.id = 'tnAllModal';
     m.innerHTML = '<div class="modal" style="max-width:980px;"><div class="modal-header"><h3><i class="fas fa-users" style="color:var(--accent);margin-right:6px;"></i> সকল ভাড়াটিয়ার তথ্য</h3><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
       '<label style="font-size:.78rem;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="tnAllDet" onchange="_tnAllDetails=this.checked;tnAllRender()"> প্রতিজনের বিস্তারিত পাতাসহ</label>' +
-      '<button class="btn btn-primary btn-sm" onclick="tnAllPrint()"><i class="fas fa-print"></i> প্রিন্ট</button><button class="btn btn-sm" style="background:#25d366;color:#fff;" onclick="tnAllWhatsApp()"><i class="fab fa-whatsapp"></i> WhatsApp</button>' +
+      '<button class="btn btn-primary btn-sm" onclick="tnAllPrint()"><i class="fas fa-print"></i> প্রিন্ট</button><button class="btn btn-primary btn-sm" onclick="tnAllWhatsApp()"><i class="fas fa-paper-plane"></i> WhatsApp পাঠান</button>' +
       '<button onclick="closeModal(\'tnAllModal\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button></div></div><div class="modal-body" id="tnAllBodyBox" style="background:#fff;max-height:75vh;overflow:auto;"></div></div>';
     document.body.appendChild(m);
   }
@@ -4741,22 +4742,111 @@ function tnAllView() {
 }
 function tnAllRender() { const b = document.getElementById('tnAllBodyBox'); if (b) b.innerHTML = '<div id="tnAllShot">' + tnAllBody({ details: false }) + '</div>' + (_tnAllDetails ? tnAllBody({ details: true }).split('<div class="tnp-pb">').slice(1).map(x => '<div class="tnp-pb" style="margin-top:24px;border-top:2px dashed #bbf7d0;padding-top:14px;">' + x).join('') : ''); }
 function tnAllPrint() { lfPrintHtml(tnAllBody({ details: _tnAllDetails }), 'সকল ভাড়াটিয়া'); }
+// ── WhatsApp-এ PDF / JPG পাঠানো (একজন বা সবার, বিস্তারিতসহ) ──
+function lfWaNumber(mobile) {
+  let d = String(mobile || '').replace(/[^0-9]/g, '');
+  if (!d) return '';
+  if (d.startsWith('880')) return d;
+  if (d.startsWith('0')) return '88' + d;
+  if (d.length === 10 && d.startsWith('1')) return '880' + d;
+  return d.startsWith('88') ? d : '88' + d;
+}
+function lfWaChat(mobile) {   // ভাড়াটিয়ার সাথে সরাসরি WhatsApp চ্যাট
+  const n = lfWaNumber(mobile);
+  if (!n) { showToast('এই ভাড়াটিয়ার মোবাইল নম্বর নেই', 'warning'); return; }
+  window.open('https://wa.me/' + n, '_blank');
+}
+function lfFormatDialog(o) {
+  o = o || {};
+  return new Promise(res => {
+    const ov = document.createElement('div'); ov.className = 'ui-dlg-ov';
+    ov.innerHTML = '<div class="ui-dlg" role="dialog" aria-modal="true"><div class="di" style="background:#dcfce7;color:#16a34a;"><i class="fab fa-whatsapp"></i></div><div class="dt"></div><div class="dm"></div>' +
+      (o.details !== undefined ? '<label style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;font-size:.86rem;cursor:pointer;"><input type="checkbox" id="lfDet"> প্রতিজনের বিস্তারিত পাতাসহ</label>' : '') +
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;"><div class="db" style="margin-top:0;"><button type="button" class="ok pdf"><i class="fas fa-file-pdf"></i> PDF</button><button type="button" class="ok jpg"><i class="fas fa-image"></i> JPG ছবি</button></div>' +
+      (o.text ? '<button type="button" class="txt" style="padding:9px;border-radius:11px;font:inherit;font-weight:700;font-size:.84rem;cursor:pointer;border:1.5px solid var(--border);background:transparent;color:var(--text-primary);"><i class="fas fa-align-left"></i> শুধু লেখা পাঠান</button>' : '') +
+      '<button type="button" class="no" style="padding:9px;border-radius:11px;font:inherit;font-size:.84rem;cursor:pointer;border:none;background:transparent;color:var(--text-muted);">বাতিল</button></div></div>';
+    ov.querySelector('.dt').textContent = o.title || 'WhatsApp-এ কিভাবে পাঠাবেন?';
+    ov.querySelector('.dm').textContent = o.msg || 'ফাইলের ধরন বেছে নিন';
+    const cb = ov.querySelector('#lfDet'); if (cb) cb.checked = !!o.details;
+    document.body.appendChild(ov);
+    const done = v => { document.removeEventListener('keydown', key, true); ov.classList.remove('show'); setTimeout(() => ov.remove(), 220); res(v); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    document.addEventListener('keydown', key, true);
+    const val = fmt => ({ fmt, details: cb ? cb.checked : false });
+    ov.querySelector('.pdf').onclick = () => done(val('pdf')); ov.querySelector('.jpg').onclick = () => done(val('jpg'));
+    const t = ov.querySelector('.txt'); if (t) t.onclick = () => done(val('text'));
+    ov.querySelector('.no').onclick = () => done(null);
+    ov.addEventListener('mousedown', e => { if (e.target === ov) done(null); });
+    requestAnimationFrame(() => ov.classList.add('show'));
+  });
+}
+// HTML ব্লকগুলো → A4 মাপের ক্যানভাস পাতা (লম্বা হলে ভেঙে)
+async function lfCanvasPages(blocks) {
+  const PW = 794, PH = 1123, pages = [];
+  for (const html of blocks) {
+    const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + PW + 'px;padding:28px;background:#fff;box-sizing:border-box;';
+    host.innerHTML = html; document.body.appendChild(host);
+    try {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      await new Promise(r => setTimeout(r, 150));
+      const c = await html2canvas(host, { scale: 2, backgroundColor: '#fff', useCORS: true, logging: false });
+      const slice = Math.round(c.width * PH / PW);
+      for (let y = 0; y < c.height; y += slice) {
+        const h = Math.min(slice, c.height - y), s = document.createElement('canvas'); s.width = c.width; s.height = h;
+        const ctx = s.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, s.width, s.height); ctx.drawImage(c, 0, y, c.width, h, 0, 0, c.width, h);
+        pages.push(s);
+      }
+    } finally { document.body.removeChild(host); }
+  }
+  return pages;
+}
+async function lfMakeFiles(blocks, fmt, baseName) {
+  const pages = await lfCanvasPages(blocks), safe = String(baseName || 'document').replace(/[\\/:*?"<>|]+/g, '_');
+  if (fmt === 'pdf') {
+    const J = window.jspdf && window.jspdf.jsPDF; if (!J) throw new Error('PDF লাইব্রেরি লোড হয়নি (ইন্টারনেট দেখুন)');
+    const pdf = new J({ unit: 'mm', format: 'a4' });
+    pages.forEach((c, i) => { if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 210 * c.height / c.width); });
+    return [new File([pdf.output('blob')], safe + '.pdf', { type: 'application/pdf' })];
+  }
+  const files = [];
+  for (let i = 0; i < pages.length; i++) { const blob = await new Promise(r => pages[i].toBlob(r, 'image/jpeg', 0.92)); files.push(new File([blob], safe + (pages.length > 1 ? '_' + (i + 1) : '') + '.jpg', { type: 'image/jpeg' })); }
+  return files;
+}
+async function lfShareFiles(files, o) {
+  o = o || {};
+  try { if (navigator.share && navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files, title: o.title || '', text: o.text || '' }); return; } }
+  catch (e) { if (e && e.name === 'AbortError') return; console.warn(e); }
+  // শেয়ার সম্ভব না (কম্পিউটার): ফাইল ডাউনলোড + WhatsApp খোলা — ফাইলটা চ্যাটে অ্যাটাচ করুন
+  files.forEach((f, i) => setTimeout(() => { const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }, i * 400));
+  showToast('ফাইল ডাউনলোড হয়েছে — WhatsApp চ্যাটে অ্যাটাচ করে পাঠান', 'info');
+  setTimeout(() => window.open('https://wa.me/' + (o.phone || '') + '?text=' + encodeURIComponent(o.text || ''), '_blank'), 900);
+}
+async function lfSendBlocks(blocks, fmt, o) {
+  showSyncOverlay(true, 'ফাইল তৈরি হচ্ছে...');
+  let files;
+  try { files = await lfMakeFiles(blocks, fmt, o.name); }
+  catch (e) { console.error(e); showToast('ফাইল তৈরি হয়নি: ' + (e.message || e), 'error'); return; }
+  finally { showSyncOverlay(false); }
+  await lfShareFiles(files, o);
+}
+// একজন ভাড়াটিয়া → PDF/JPG
+async function tnSendWhatsApp(id) {
+  const tn = (tenants || []).find(x => x.id === id); if (!tn) return;
+  const r = await lfFormatDialog({ title: tn.name + ' — তথ্যপত্র পাঠান', msg: 'কোন ফরম্যাটে WhatsApp-এ পাঠাবেন?' }); if (!r) return;
+  await lfSendBlocks([tnDossierBody(tn, { sign: true, title: 'ভাড়াটিয়ার তথ্য পত্র' })], r.fmt, { name: 'ভাড়াটিয়া_' + tn.name, phone: lfWaNumber(tn.mobile), title: tn.name + ' - তথ্যপত্র', text: '📋 ' + tn.name + ' — ভাড়াটিয়ার তথ্যপত্র (' + (settings.mktName || '') + ')' });
+}
+// সব ভাড়াটিয়া → PDF/JPG (বিস্তারিতসহ বা ছাড়া) বা শুধু লেখা
 async function tnAllWhatsApp() {
   const list = _tnAllList(), now = new Date();
-  const text = '📋 *ভাড়াটিয়া তালিকা — ' + (settings.mktName || '') + '*\nমোট: ' + list.length + ' জন\n\n' +
-    list.map((t, i) => (i + 1) + '. ' + t.name + ' — দোকান ' + (t.shop || '-') + ' — ভাড়া ' + _lfMoney(effectiveRent(t, _BNM[now.getMonth()], now.getFullYear())) + ' — ' + (t.mobile || '')).join('\n') + '\n\nধন্যবাদ।';
-  try {
-    if (typeof html2canvas !== 'undefined' && navigator.share && navigator.canShare) {
-      showToast('ছবি তৈরি হচ্ছে...');
-      const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-99999px;top:0;width:900px;background:#fff;';
-      host.innerHTML = tnAllBody({ details: false }); document.body.appendChild(host);
-      let file;
-      try { const c = await html2canvas(host, { scale: 1.5, backgroundColor: '#fff', useCORS: true, logging: false }); const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92)); file = new File([blob], 'tenants_list.jpg', { type: 'image/jpeg' }); }
-      finally { document.body.removeChild(host); }
-      if (file && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'ভাড়াটিয়া তালিকা', text: '📋 ভাড়াটিয়া তালিকা — ' + (settings.mktName || '') }); return; }
-    }
-  } catch (e) { if (e && e.name === 'AbortError') return; console.warn(e); }
-  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  const r = await lfFormatDialog({ title: 'সকল ভাড়াটিয়া — WhatsApp', msg: 'ফরম্যাট বেছে নিন', details: _tnAllDetails, text: true }); if (!r) return;
+  if (r.fmt === 'text') {
+    const text = '📋 *ভাড়াটিয়া তালিকা — ' + (settings.mktName || '') + '*\nমোট: ' + list.length + ' জন\n\n' +
+      list.map((t, i) => (i + 1) + '. ' + t.name + ' — দোকান ' + (t.shop || '-') + ' — ভাড়া ' + _lfMoney(effectiveRent(t, _BNM[now.getMonth()], now.getFullYear())) + ' — ' + (t.mobile || '')).join('\n') + '\n\nধন্যবাদ।';
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); return;
+  }
+  const blocks = [tnAllBody({ details: false })];
+  if (r.details) list.forEach(t => blocks.push(tnDossierBody(t, { title: 'ভাড়াটিয়ার তথ্য পত্র' })));
+  await lfSendBlocks(blocks, r.fmt, { name: 'সকল_ভাড়াটিয়া' + (r.details ? '_বিস্তারিত' : ''), title: 'সকল ভাড়াটিয়া', text: '📋 ভাড়াটিয়া তালিকা — ' + (settings.mktName || '') + ' (' + list.length + ' জন)' });
 }
 
 function lfPrintHtml(body, title) {
