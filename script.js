@@ -676,7 +676,7 @@ function ownerSigUI() {
   const on = sigOn();
   b.className = on ? 'btn btn-primary btn-sm' : 'btn btn-gray btn-sm';
   b.innerHTML = on ? '<i class="fas fa-toggle-on"></i> চালু' : '<i class="fas fa-toggle-off"></i> বন্ধ';
-  if (h) h.textContent = on ? 'রসিদে জমিদার ও ভাড়াটিয়া — দুজনের স্বাক্ষরই দেখাচ্ছে' : 'রসিদে কোনো স্বাক্ষর দেখানো হচ্ছে না';
+  if (h) h.textContent = on ? 'রসিদ, মেমো, তথ্যপত্র ও চুক্তিপত্রে জমিদার ও ভাড়াটিয়ার স্বাক্ষর দেখাচ্ছে' : 'কোথাও জমিদার/ভাড়াটিয়ার স্বাক্ষর দেখানো হচ্ছে না';
 }
 async function toggleOwnerSig() {
   settings.showOwnerSig = !sigOn();
@@ -1095,9 +1095,10 @@ function removeNID(previewId, dataId, fileId) {
   const f = document.getElementById(fileId); if (f) f.value = '';
 }
 
-function printTenant(id) {
+async function printTenant(id) {
   const tn = tenants.find(x => x.id === id);
   if (!tn) { showToast('ভাড়াটিয়া পাওয়া যায়নি', 'error'); return; }
+  await tnQrFor(tn);
   lfPrintHtml(tnDossierBody(tn, { title: 'ভাড়াটিয়ার তথ্য পত্র', sign: true }), 'ভাড়াটিয়ার তথ্য - ' + tn.name);
 }
 
@@ -2299,7 +2300,7 @@ let _scanEvents = [], _scanFirstLoad = true;
 function _scanSeenAt() { try { return parseInt(localStorage.getItem('scanSeenAt') || '0', 10); } catch (e) { return 0; } }
 function scanEventMs(e) { return e && e.at && e.at.toMillis ? e.at.toMillis() : 0; }
 function scanEventText(e) {
-  return (e.tenantName || 'অজানা') + (e.shop ? ' (' + e.shop + ')' : '') + ' এর রসিদ' + (e.month ? ' — ' + e.month + ' ' + (e.year || '') : '') + ' স্ক্যান করা হয়েছে';
+  return (e.tenantName || 'অজানা') + (e.shop ? ' (' + e.shop + ')' : '') + (e.month === 'ভাড়াটিয়া তথ্যপত্র' ? ' এর তথ্যপত্রের QR' : ' এর রসিদ' + (e.month ? ' — ' + e.month + ' ' + (e.year || '') : '')) + ' স্ক্যান করা হয়েছে';
 }
 function scanBeep() {
   try {
@@ -3451,7 +3452,7 @@ function memoHtml(m) {
     '<div class="memo-words">কথায় : <span class="slip-note">' + takaInWords(m.total) + '</span></div>' +
     (m.note ? '<div style="font-size:.8rem;color:#4b5563;">মন্তব্য : <span class="slip-note">' + _esc(m.note) + '</span></div>' : '') +
     '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:22px;padding-top:10px;border-top:1px dashed #86efac;font-size:.78rem;color:#14532d;">' +
-    '<div><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>গ্রহীতার স্বাক্ষর</div></div>' +
+    (sigOn() ? '<div><div style="border-bottom:1.5px solid #16a34a;width:110px;height:36px;margin-bottom:4px;"></div><div>গ্রহীতার স্বাক্ষর</div></div>' : '<div></div>') +
     '<div style="text-align:right;">' + (m.collector ? '<div style="margin-bottom:2px;">সংগ্রহকারী: <span class="slip-field">' + _esc(m.collector) + '</span></div>' : '') + (sigOn() ? sig + '<div>জমিদারের স্বাক্ষর</div>' : '') + '</div></div>' +
     '<div class="slip-decorative" style="margin-top:10px;"></div></div>';
 }
@@ -4276,9 +4277,9 @@ function agwBlocks(d, mark) {
   tail.push(P(agwFill(d.closing, v)));
   tail.push('<div style="text-align:center;font-size:1.2em;font-weight:800;text-decoration:underline;margin-bottom:4px;">‘দোকানের তফসিল’</div>' + P(agwFill(d.schedule, v)));
   tail.push('<div style="margin-top:6px;"><div style="text-decoration:underline;margin-bottom:10px;">সাক্ষীগণের স্বাক্ষর, নাম ও ঠিকানাঃ</div>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-end;height:50px;"><span>১।</span><div class="agw-line">১ম পক্ষ/ জমিদারের স্বাক্ষর</div></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;height:50px;"><span>১।</span>' + (sigOn() ? '<div class="agw-line">১ম পক্ষ/ জমিদারের স্বাক্ষর</div>' : '') + '</div>' +
     '<div style="height:44px;"><span>২।</span></div>' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-end;height:50px;"><span>৩।</span><div class="agw-line">২য় পক্ষ/ভাড়াটিয়ার স্বাক্ষর</div></div></div>');
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;height:50px;"><span>৩।</span>' + (sigOn() ? '<div class="agw-line">২য় পক্ষ/ভাড়াটিয়ার স্বাক্ষর</div>' : '') + '</div></div>');
   out.push(tail.map(t => '<div class="agw-b">' + t + '</div>').join(''));
   return out;
 }
@@ -4613,6 +4614,7 @@ const TNP_CSS = `
 .tnp-sub{font-size:11.5px;color:#4b5d52;}
 .tnp-doc{margin-left:auto;text-align:right;font-size:11px;color:#4b5d52;flex-shrink:0;}
 .tnp-doc b{display:block;font-size:12.5px;color:#14532d;}
+.tnp-qr{width:70px;flex-shrink:0;text-align:center;margin-left:6px;}.tnp-qr img{width:64px;height:64px;display:block;margin:0 auto;border:1px solid #bbf7d0;border-radius:6px;padding:2px;background:#fff;}.tnp-qr span{display:block;font-size:8.5px;color:#4b5d52;line-height:1.2;margin-top:2px;}
 .tnp-title{display:flex;align-items:center;gap:12px;margin:20px 0 14px;}
 .tnp-title:before,.tnp-title:after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,#16a34a);}
 .tnp-title:after{background:linear-gradient(270deg,transparent,#16a34a);}
@@ -4655,11 +4657,32 @@ const TNP_CSS = `
 .tnp-pb{page-break-before:always;break-before:page;}
 `;
 (function injectTnpCss() { if (document.getElementById('tnpCss')) return; const st = document.createElement('style'); st.id = 'tnpCss'; st.textContent = TNP_CSS; document.head.appendChild(st); })();
-function _tnpHead(docTitle, docNo) {
+// ভাড়াটিয়ার যাচাই QR: receipts/{token} (kind:'tenant') — verify.html এ নাম, ঠিকানা, মোবাইল দেখায়
+const _tnQrById = {}, _tnQrSig = {};
+async function tnQrFor(tn) {
+  if (!tn || typeof QRCode === 'undefined') return '';
+  try {
+    const cur = (DB.get('tenants') || []).find(x => x.id === tn.id) || (DB.get('archivedTenants') || []).find(x => x.id === tn.id) || {};
+    tn.verifyToken = tn.verifyToken || cur.verifyToken || makeVerifyToken();
+    if (cur.verifyToken !== tn.verifyToken) { try { await FDB.save('tenants', tn.id, { verifyToken: tn.verifyToken }); } catch (e) {} }
+    const sig = [tn.name, tn.address, tn.mobile, tn.shop, tn.floor].join('|');
+    if (FIREBASE_READY && db_fire && _tnQrSig[tn.id] !== sig) {
+      const rec = { kind: 'tenant', token: tn.verifyToken, tenantId: tn.id, tenantName: tn.name || '', mktName: settings.mktName || '', mktAddress: settings.mktAddress || '', mktPhone: settings.mktPhone || '',
+        name: tn.name || '', address: tn.address || '', mobile: tn.mobile || '', shop: tn.shop || '', floor: tn.floor || '', updatedAt: new Date().toISOString() };
+      try { await Promise.race([db_fire.collection('receipts').doc(tn.verifyToken).set(rec), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 7000))]); _tnQrSig[tn.id] = sig; }
+      catch (e) { console.warn('Tenant QR publish failed:', e); }
+    }
+    _tnQrById[tn.id] = await generateQRDataUrl(verifyUrlFor(tn.verifyToken));
+  } catch (e) { console.warn(e); }
+  return _tnQrById[tn.id] || '';
+}
+async function tnQrPrefetch(list) { for (const t of list) await tnQrFor(t); }
+function _tnpHead(docTitle, docNo, qr) {
   const logo = new URL('assets/logo.png', location.href).href;
   return '<div class="tnp-head"><img class="tnp-logo" src="' + logo + '" alt="" onerror="this.style.display=\'none\'">' +
     '<div><h1>' + _esc(settings.mktName || '') + '</h1><div class="tnp-sub">' + _esc(settings.mktAddress || '') + '</div><div class="tnp-sub">ফোন : ' + _esc(settings.mktPhone || '') + '</div></div>' +
-    '<div class="tnp-doc"><b>' + (docNo ? 'নং: ' + _esc(docNo) : '') + '</b>তারিখ: ' + fmtDate(new Date()) + '</div></div>' +
+    '<div class="tnp-doc"><b>' + (docNo ? 'নং: ' + _esc(docNo) : '') + '</b>তারিখ: ' + fmtDate(new Date()) + '</div>' +
+    (qr ? '<div class="tnp-qr"><img src="' + qr + '" alt="QR"><span>স্ক্যান করে যাচাই</span></div>' : '') + '</div>' +
     '<div class="tnp-title"><span>' + _esc(docTitle) + '</span></div>';
 }
 function _tnpRow(k, v) { return '<div class="tnp-row"><span class="k">' + k + '</span><span class="v">' + (v === '' || v == null ? '-' : v) + '</span></div>'; }
@@ -4669,7 +4692,7 @@ function tnDossierBody(tn, o) {
   const st = _tnpStatus(tn), now = new Date(), er = effectiveRent(tn, _BNM[now.getMonth()], now.getFullYear());
   const ded = tn.monthlyDeduction || tn.deduction || 0, rem = _lfRemaining(tn), vl = validityLabel(tn.startDate, tn.endDate);
   const photo = tn.photo ? '<img class="tnp-photo" src="' + tn.photo + '" alt="">' : '<div class="tnp-photo ph">' + _esc((tn.name || '?').charAt(0)) + '</div>';
-  let h = '<div class="tnp">' + _tnpHead(o.title || 'ভাড়াটিয়ার তথ্য পত্র', tn.serial ? String(tn.serial).padStart(3, '0') : '');
+  let h = '<div class="tnp">' + _tnpHead(o.title || 'ভাড়াটিয়ার তথ্য পত্র', tn.serial ? String(tn.serial).padStart(3, '0') : '', _tnQrById[tn.id]);
   if (o.rec) {
     const r = o.rec;
     h += '<div class="tnp-card" style="margin-bottom:12px;"><h3>নবায়নের বিবরণ</h3>' +
@@ -4700,7 +4723,7 @@ function tnDossierBody(tn, o) {
       o.agreements.map(a => _tnpRow(_esc(a.fileName || 'চুক্তি'), (a.type === 'renewal' ? 'নবায়ন' : 'নতুন') + ' • ' + (fmtDate(a.startDate) || '-') + ' → ' + (fmtDate(a.endDate) || '-'))).join('') + '</div>';
     (o.agImages || []).forEach(x => { h += '<div class="tnp-pb" style="text-align:center;"><div class="c" style="font-weight:700;margin:6px 0;">' + _esc(x.name) + '</div><img src="' + x.src + '" style="max-width:100%;max-height:1000px;border:1px solid #bbf7d0;" alt=""></div>'; });
   }
-  if (o.sign) {
+  if (o.sign && sigOn()) {
     h += '<div class="tnp-sign"><div><div style="height:42px;"></div><div class="ln">ভাড়াটিয়ার স্বাক্ষর</div></div><div>' + ((typeof ownerSignature !== 'undefined' && ownerSignature) ? '<img src="' + ownerSignature + '" alt="">' : '<div style="height:42px;"></div>') + '<div class="ln">জমিদারের স্বাক্ষর</div></div></div>';
   }
   return h + '<div class="tnp-foot"><span>' + _esc(settings.mktName || '') + '</span><span>প্রিন্টের তারিখ: ' + fmtDate(new Date()) + '</span></div></div>';
@@ -4740,8 +4763,8 @@ function tnAllView() {
   }
   tnAllRender(); openModal('tnAllModal');
 }
-function tnAllRender() { const b = document.getElementById('tnAllBodyBox'); if (b) b.innerHTML = '<div id="tnAllShot">' + tnAllBody({ details: false }) + '</div>' + (_tnAllDetails ? tnAllBody({ details: true }).split('<div class="tnp-pb">').slice(1).map(x => '<div class="tnp-pb" style="margin-top:24px;border-top:2px dashed #bbf7d0;padding-top:14px;">' + x).join('') : ''); }
-function tnAllPrint() { lfPrintHtml(tnAllBody({ details: _tnAllDetails }), 'সকল ভাড়াটিয়া'); }
+async function tnAllRender() { if (_tnAllDetails) await tnQrPrefetch(_tnAllList()); const b = document.getElementById('tnAllBodyBox'); if (b) b.innerHTML = '<div id="tnAllShot">' + tnAllBody({ details: false }) + '</div>' + (_tnAllDetails ? tnAllBody({ details: true }).split('<div class="tnp-pb">').slice(1).map(x => '<div class="tnp-pb" style="margin-top:24px;border-top:2px dashed #bbf7d0;padding-top:14px;">' + x).join('') : ''); }
+async function tnAllPrint() { if (_tnAllDetails) await tnQrPrefetch(_tnAllList()); lfPrintHtml(tnAllBody({ details: _tnAllDetails }), 'সকল ভাড়াটিয়া'); }
 // ── WhatsApp-এ PDF / JPG পাঠানো (একজন বা সবার, বিস্তারিতসহ) ──
 function lfWaNumber(mobile) {
   let d = String(mobile || '').replace(/[^0-9]/g, '');
@@ -4833,6 +4856,7 @@ async function lfSendBlocks(blocks, fmt, o) {
 async function tnSendWhatsApp(id) {
   const tn = (tenants || []).find(x => x.id === id); if (!tn) return;
   const r = await lfFormatDialog({ title: tn.name + ' — তথ্যপত্র পাঠান', msg: 'কোন ফরম্যাটে WhatsApp-এ পাঠাবেন?' }); if (!r) return;
+  await tnQrFor(tn);
   await lfSendBlocks([tnDossierBody(tn, { sign: true, title: 'ভাড়াটিয়ার তথ্য পত্র' })], r.fmt, { name: 'ভাড়াটিয়া_' + tn.name, phone: lfWaNumber(tn.mobile), title: tn.name + ' - তথ্যপত্র', text: '📋 ' + tn.name + ' — ভাড়াটিয়ার তথ্যপত্র (' + (settings.mktName || '') + ')' });
 }
 // সব ভাড়াটিয়া → PDF/JPG (বিস্তারিতসহ বা ছাড়া) বা শুধু লেখা
@@ -4845,6 +4869,7 @@ async function tnAllWhatsApp() {
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); return;
   }
   const blocks = [tnAllBody({ details: false })];
+  if (r.details) await tnQrPrefetch(list);
   if (r.details) list.forEach(t => blocks.push(tnDossierBody(t, { title: 'ভাড়াটিয়ার তথ্য পত্র' })));
   await lfSendBlocks(blocks, r.fmt, { name: 'সকল_ভাড়াটিয়া' + (r.details ? '_বিস্তারিত' : ''), title: 'সকল ভাড়াটিয়া', text: '📋 ভাড়াটিয়া তালিকা — ' + (settings.mktName || '') + ' (' + list.length + ' জন)' });
 }
@@ -4944,6 +4969,7 @@ async function oldTenantPrint(id) {
   const t = _lfFind(id); if (!t) return;
   const ags = await getAgreementList(id);
   const imgs = await _lfAgImages(ags);
+  await tnQrFor(t);
   lfPrintHtml(tnDossierBody(t, { title: 'পুরাতন ভাড়াটিয়ার তথ্য', agreements: ags, agImages: imgs }), 'পুরাতন ভাড়াটিয়া - ' + (t.name || ''));
 }
 async function _lfDeleteAgreementCore(a, tenantId) {
@@ -5055,7 +5081,8 @@ function rnShow(tenantId, recId) {
   }
   _rnEl('rsTitle').textContent = 'নবায়ন — ' + tn.name;
   _rnEl('rsBody').innerHTML = tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec });
-  _rnEl('rsPrint').onclick = () => lfPrintHtml(tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec }), 'নবায়ন - ' + tn.name);
+  tnQrFor(tn).then(() => { const b = _rnEl('rsBody'); if (b && _rnEl('renewShowModal').classList.contains('open')) b.innerHTML = tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec }); });
+  _rnEl('rsPrint').onclick = async () => { await tnQrFor(tn); lfPrintHtml(tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec }), 'নবায়ন - ' + tn.name); };
   _rnEl('rsWa').onclick = () => rnWhatsApp(tn.id, rec.id);
   _rnEl('rsUp').onclick = () => { closeModal('renewShowModal'); openAgreementUpload(tn.id); const t = _rnEl('agUploadType'); if (t) t.value = 'renewal'; _rnSetUpload(rec); };
   openModal('renewShowModal');
@@ -5075,6 +5102,7 @@ async function rnWhatsApp(tenantId, recId) {
   try {
     if (typeof html2canvas !== 'undefined' && navigator.share && navigator.canShare) {
       showToast('ছবি তৈরি হচ্ছে...');
+      await tnQrFor(tn);
       const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-99999px;top:0;width:760px;background:#fff;';
       host.innerHTML = tnDossierBody(tn, { title: 'চুক্তি নবায়ন তথ্য', rec }); document.body.appendChild(host);
       let file;

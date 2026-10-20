@@ -249,6 +249,33 @@
   }
 
   // ---- অগ্রিম মেমো (হিসাব ও মেমো > অগ্রিম মেমো থেকে তৈরি) ----
+  function renderTenant(r){
+    if(r.mktName) $('mktName').textContent = r.mktName;
+    if(r.mktAddress) $('mktAddr').textContent = r.mktAddress;
+    var box = el('div');
+    var st = el('div','state ok');
+    var ring = el('div','badge-ring pop'); ring.appendChild(svgIcon('ok'));
+    st.appendChild(ring);
+    st.appendChild(el('div','eyebrow','Tenant Verified'));
+    st.appendChild(el('div','title','ভাড়াটিয়া ভেরিফাইড'));
+    st.appendChild(el('div','sub','এই ভাড়াটিয়ার তথ্য মার্কেটের সার্ভারে পাওয়া গিয়েছে — ভেরিফাইড।'));
+    if(r.shop){
+      var pill = el('div','month-pill');
+      pill.innerHTML = CAL_SVG;
+      pill.appendChild(document.createTextNode('দোকান: '+r.shop+(r.floor?' ('+r.floor+')':'')));
+      st.appendChild(pill);
+    }
+    box.appendChild(st);
+    var rows = [['নাম', r.name||'-'],['ঠিকানা', r.address||'-'],['মোবাইল', r.mobile||'-']];
+    var dl = el('dl');
+    rows.forEach(function(x){
+      var row = el('div','row'); row.appendChild(el('dt','',x[0])); row.appendChild(el('dd','',x[1])); dl.appendChild(row);
+    });
+    box.appendChild(dl);
+    box.appendChild(sealBox(r));
+    box.appendChild(contactActions());
+    show(box);
+  }
   function renderAdvance(r){
     if(r.mktName) $('mktName').textContent = r.mktName;
     if(r.mktAddress) $('mktAddr').textContent = r.mktAddress;
@@ -317,11 +344,11 @@
     }).catch(function(e){ console.warn('scan log skipped', e && e.code); });
     // admin ke live jananor jonno (app e popup)
     r = r || {};
-    var isAdv = r.kind === 'advance';
+    var isAdv = r.kind === 'advance', isTn = r.kind === 'tenant';
     db.collection('scanEvents').add({
       token: token, deviceId: dev, at: ts, ua: ua,
-      tenantName: String(r.tenantName || '').slice(0,80), shop: String(r.shop || '').slice(0,30),
-      month: isAdv ? 'অগ্রিম মেমো' : String(r.month || '').slice(0,20), year: isAdv ? '' : String(r.year || '').slice(0,6),
+      tenantName: String(r.tenantName || r.name || '').slice(0,80), shop: String(r.shop || '').slice(0,30),
+      month: isAdv ? 'অগ্রিম মেমো' : isTn ? 'ভাড়াটিয়া তথ্যপত্র' : String(r.month || '').slice(0,20), year: isAdv ? '' : String(r.year || '').slice(0,6),
       slipNo: String((isAdv ? r.memoNo : r.slipNo) || '').slice(0,30)
     }).catch(function(e){ console.warn('scan event skipped', e && e.code); });
   }
@@ -339,7 +366,7 @@
       clearTimeout(timer);
       if(!snap.exists){ renderInvalid('এই QR কোডের সাথে মিল আছে এমন কোনো রসিদ পাওয়া যায়নি।'); return; }
       var d = snap.data(); d.token = token;
-      if(d.kind === 'advance') renderAdvance(d); else renderReceipt(d);
+      if(d.kind === 'advance') renderAdvance(d); else if(d.kind === 'tenant' || (!d.kind && d.name && !d.month && !d.slipNo && d.amount == null && d.received == null)) renderTenant(d); else renderReceipt(d);
       logScan(db, token, d);
     }).catch(function(e){
       clearTimeout(timer);
