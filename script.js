@@ -1290,6 +1290,59 @@ function autoNoteType() {            // payment er poriman onujayi auto select
   onNoteTypeChange();
 }
 
+// ── বকেয়া রসিদ আপডেট: একই রসিদ, নতুন পরিশোধের তারিখ ও মন্তব্যসহ ──
+function _ruNote(p, amt, date) {
+  const paid = (p.paid || 0) + amt, due = Math.max(0, (p.rent || 0) - paid);
+  return due <= 0 ? 'আপনি দেরিতে ভাড়া পরিশোধ করেছেন — বকেয়া ভাড়া ' + fmtDate(date) + ' তারিখে পরিশোধিত। ধন্যবাদ।'
+    : 'দেরিতে আংশিক পরিশোধ (' + fmtDate(date) + ') — মোট দিয়েছেন ৳' + paid.toLocaleString() + ', বাকি ৳' + due.toLocaleString();
+}
+function openRentUpdate(id) {
+  const p = payments.find(x => x.id === id); if (!p) return;
+  let m = document.getElementById('rentUpdModal');
+  if (!m) { m = document.createElement('div'); m.className = 'modal-overlay'; m.id = 'rentUpdModal'; document.body.appendChild(m); }
+  const today = new Date().toISOString().slice(0, 10);
+  m.innerHTML = '<div class="modal" style="max-width:480px;"><div class="modal-header"><h3><i class="fas fa-pen-to-square" style="color:#f59e0b;margin-right:6px;"></i> রসিদ আপডেট — বকেয়া পরিশোধ</h3><button onclick="closeModal(\'rentUpdModal\')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fas fa-times"></i></button></div><div class="modal-body">' +
+    '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;font-size:.84rem;margin-bottom:12px;line-height:1.7;"><b>' + _esc(p.tenantName) + '</b> · ' + _esc(p.shop) + ' · ' + _esc(p.month) + ' ' + (p.year || '') + '<br>মাসিক ভাড়া: ৳' + (p.rent || 0).toLocaleString() + ' · এ পর্যন্ত দিয়েছেন: ৳' + (p.paid || 0).toLocaleString() + ' · <b style="color:#dc2626;">বাকি: ৳' + (p.due || 0).toLocaleString() + '</b></div>' +
+    '<div class="form-grid"><div class="form-group"><label class="form-label">এখন কত টাকা দিলেন (৳)</label><input class="form-input" type="number" step="any" id="ruAmt" value="' + (p.due || 0) + '" oninput="ruCalc()"></div>' +
+    '<div class="form-group"><label class="form-label">টাকা দেওয়ার তারিখ</label><input class="form-input" type="date" id="ruDate" value="' + today + '" onchange="ruCalc()"></div></div>' +
+    '<div class="form-group"><label class="form-label">নতুন বাকি</label><input class="form-input" id="ruDue" readonly></div>' +
+    '<div class="form-group"><label class="form-label">মন্তব্য (রসিদ ও স্ক্যান পেজে দেখাবে)</label><textarea class="form-input" id="ruNote" rows="2"></textarea></div>' +
+    '<p style="font-size:.74rem;color:var(--text-muted);">রসিদের আগের তারিখ বদলে নতুন তারিখ বসবে এবং একই QR স্ক্যান করলে আপডেটকৃত অবস্থা দেখাবে।</p>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;"><button class="btn btn-gray" onclick="closeModal(\'rentUpdModal\')">বাতিল</button><button class="btn btn-primary" id="ruSave" onclick="saveRentUpdate(\'' + p.id + '\')"><i class="fas fa-save"></i> আপডেট করুন</button></div></div></div>';
+  window._ruP = p; ruCalc(); openModal('rentUpdModal');
+}
+function ruCalc() {
+  const p = window._ruP; if (!p) return;
+  const amt = parseFloat(document.getElementById('ruAmt').value) || 0, date = document.getElementById('ruDate').value;
+  document.getElementById('ruDue').value = '৳' + Math.max(0, (p.rent || 0) - (p.paid || 0) - amt).toLocaleString();
+  document.getElementById('ruNote').value = _ruNote(p, amt, date);
+}
+async function saveRentUpdate(id) {
+  const p = payments.find(x => x.id === id); if (!p) return;
+  const amt = parseFloat(document.getElementById('ruAmt').value), date = document.getElementById('ruDate').value;
+  if (!(amt > 0) || !date) { showToast('টাকার পরিমাণ ও তারিখ দিন', 'error'); return; }
+  const paid = (p.paid || 0) + amt, due = Math.max(0, (p.rent || 0) - paid);
+  const upd = { paid, due, status: paid >= (p.rent || 0) ? 'paid' : 'partial', date, origDate: p.origDate || p.date || '', lateUpdate: true,
+    notes: document.getElementById('ruNote').value.trim(), updatedAt: new Date().toISOString() };
+  showSyncOverlay(true, 'রসিদ আপডেট হচ্ছে...');
+  try {
+    await FDB.save('payments', id, upd);
+    try {
+      const key = 'slips_' + p.tenantId, all = JSON.parse(localStorage.getItem(key) || '[]');
+      all.forEach(x => { if (String(x.slipNo) === String(p.tenantSlipNo)) Object.assign(x, upd); });
+      localStorage.setItem(key, JSON.stringify(all));
+      if (FIREBASE_READY && p.tenantSlipNo) await db_fire.collection('tenants').doc(p.tenantId).collection('slips').doc(String(p.tenantSlipNo)).set(upd, { merge: true });
+    } catch (e) { console.warn(e); }
+    payments = await FDB.getAll('payments');
+    const np = payments.find(x => x.id === id);
+    if (np) { np._receiptSynced = false; if (np.verifyToken && FIREBASE_READY) await ensureReceipt(np); }
+    addActivity('বকেয়া পরিশোধ: ' + p.tenantName + ' - ৳' + amt.toLocaleString(), 'money-bill-wave', '#16a34a');
+  } catch (e) { console.warn(e); showToast('আপডেট করা যায়নি', 'error'); showSyncOverlay(false); return; }
+  showSyncOverlay(false); closeModal('rentUpdModal');
+  buildMonthFilters(); renderPayments(); updateNotifications();
+  showToast('রসিদ আপডেট হয়েছে ☁️'); setTimeout(() => viewSlip(id), 300);
+}
+
 function calcDue() {
   const rent = parseFloat(document.getElementById('rMonthlyRent').value)||0;
   const paid = parseFloat(document.getElementById('rPaid').value)||0;
@@ -1364,6 +1417,7 @@ function _payRowHtml(p, idx) {
     '<td><span class="badge '+(p.status==='paid'?'badge-green':p.status==='partial'?'badge-yellow':'badge-red')+'">'+(p.status==='paid'?'পরিশোধিত':p.status==='partial'?'আংশিক':'বাকি')+'</span></td>'+
     '<td><div style="display:flex;gap:3px;">'+
     '<button onclick="viewSlip(\''+p.id+'\')" class="btn btn-primary btn-sm"><i class="fas fa-receipt"></i></button>'+
+    (p.status!=='paid'&&(p.due||0)>0?'<button onclick="openRentUpdate(\''+p.id+'\')" class="btn btn-sm" style="background:#f59e0b;color:#fff;" title="রসিদ আপডেট (বকেয়া পরিশোধ)"><i class="fas fa-pen-to-square"></i></button>':'')+
     '<button onclick="openScanLog(\''+p.id+'\')" class="btn btn-gray btn-sm" title="QR স্ক্যান রেকর্ড"><i class="fas fa-qrcode"></i></button>'+
     '<button onclick="deletePayment(\''+p.id+'\')" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>'+
     '</div></td></tr>';
@@ -1457,6 +1511,7 @@ async function ensureReceipt(p) {
       tenantName: p.tenantName || '', shop: p.shop || '',
       month: p.month || '', year: p.year || '', date: p.date || '',
       rent: p.rent || 0, paid: p.paid || 0, due: p.due || 0, status: p.status || 'due',
+      notes: p.notes || '', lateUpdate: !!p.lateUpdate, origDate: p.origDate || '',
       slipNo: p.tenantSlipNo || String(p.slipNo || ''), createdAt: new Date().toISOString()
     };
     try {

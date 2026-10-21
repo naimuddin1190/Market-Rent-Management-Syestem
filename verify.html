@@ -243,6 +243,8 @@
     });
     box.appendChild(dl);
 
+    if(r.lateUpdate && r.origDate){ var od=el('div','sub','প্রথম রসিদের তারিখ: '+fmtDate(r.origDate)); od.style.cssText='text-align:center;margin:6px 0;font-size:.8rem;'; box.appendChild(od); }
+    if(r.notes){ var nb=el('div','note-box'); nb.style.cssText='margin:10px 0;padding:11px 14px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:.88rem;line-height:1.6;'; nb.appendChild(el('b','','মন্তব্য: ')); nb.appendChild(document.createTextNode(r.notes)); box.appendChild(nb); }
     box.appendChild(sealBox(r));
     box.appendChild(contactActions());
     show(box);
